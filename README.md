@@ -21,12 +21,13 @@ feedvalidator regels               # de regelcatalogus tonen
 open rapport/index.html            # het rapport bekijken
 ```
 
-Een volledige ronde (227 landen, ruim 700 verzoeken) duurt ongeveer een halve
-minuut.
+Een volledige ronde is ruim 700 verzoeken over 227 landen. Die gaan op tempo
+(standaard zes per seconde, vier tegelijk) omdat de feed anders afknijpt, dus
+reken op twee tot drie minuten.
 
 ## Wat er gecontroleerd wordt
 
-30 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
+31 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
 (`L…`). `feedvalidator regels` toont ze met uitleg; kort samengevat:
 
 | Onderwerp | Regels |
@@ -67,7 +68,8 @@ feed te belasten.
 | Optie | Doet |
 | --- | --- |
 | `--limit N` | alleen de eerste N landen |
-| `--workers N` | aantal parallelle verzoeken (standaard 8) |
+| `--workers N` | aantal parallelle verzoeken (standaard 4) |
+| `--verzoeken-per-seconde N` | bovengrens aan het tempo (standaard 6) |
 | `--check-files` | elk kaartbestand daadwerkelijk ophalen |
 | `--check-website` | wijzigingsdatum vergelijken met nederlandwereldwijd.nl |
 | `--allow-isocode CODE` | een landcode accepteren die van ISO 3166-1 afwijkt (herhaalbaar) |
@@ -126,24 +128,33 @@ vertegenwoordiging met hetzelfde `id` als die van Nieuw-Zeeland en met een
 `dataurl` die daarheen wijst, maar zonder adresregels — het adres staat bij
 Nieuw-Zeeland.
 
-De validator legt die koppeling zelf, via het gedeelde `id`, en telt zo'n
-verwijzing dus niet als een ontbrekend adres. L18 meldt alleen een post
-waarvan het adres nergens in de feed staat. Dat zijn in de praktijk gesloten
-of opgeschorte posten.
+Die link ís het adres — het staat er alleen achter. De validator leest het
+land uit de `dataurl`: wijst die naar een ánder land dan het landrecord zelf,
+dan is het een verwijzing en telt de post als voorzien van een adres. Dat
+werkt ook als dat andere land buiten de ronde viel.
+
+L18 meldt daarom alleen een post die naar zichzelf verwijst en tóch geen
+adresregels heeft. In de peiling zijn dat er vijf: Kaboel, Tripoli,
+St. Petersburg, Khartoem en Damascus — allemaal gesloten of opgeschort.
 
 ## Over de feed
 
 - Basis-URL: `https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd`
   (v1 is uitgefaseerd en antwoordt met HTTP 410).
 - Geen API-sleutel nodig; licentie CC0 1.0.
-- Drie eigenaardigheden die deze validator afvangt:
+- Vier eigenaardigheden die deze validator afvangt:
   1. de standaarduitvoer is XML — JSON krijg je met `?output=json`, de
      `Accept`-header wordt genegeerd;
   2. `rows` wordt afgekapt op 200, dus lijsten vragen om paginering met
      `offset`;
   3. de Azure Application Gateway blokkeert een aantal standaard user agents
      (waaronder `python-requests/x.y`) met HTTP 403 — stuur altijd een eigen
-     user agent mee.
+     user agent mee;
+  4. diezelfde gateway knijpt af met HTTP 429 als de verzoeken te snel gaan.
+     De validator blijft daarom onder `--verzoeken-per-seconde` en volgt
+     `Retry-After`. Gebeurt het tóch, dan meldt regel F10 dat het rapport
+     onvolledig is — een afgeknepen verzoek is geen ontbrekend reisadvies, en
+     L01 en L17 zwijgen er dan over.
 
 ## Vormgeving
 

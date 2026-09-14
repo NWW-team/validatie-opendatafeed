@@ -43,8 +43,15 @@ def _add_validate_arguments(parser: argparse.ArgumentParser) -> None:
     feed.add_argument("--base-url", default=DEFAULT_BASE_URL, help="basis-URL van de feed")
     feed.add_argument("--user-agent", default=DEFAULT_USER_AGENT, help="user agent voor verzoeken")
     feed.add_argument("--timeout", type=float, default=30.0, help="timeout per verzoek (seconden)")
-    feed.add_argument("--retries", type=int, default=3, help="aantal pogingen per verzoek")
-    feed.add_argument("--workers", type=int, default=8, help="aantal parallelle verzoeken")
+    feed.add_argument("--retries", type=int, default=5, help="aantal pogingen per verzoek")
+    feed.add_argument("--workers", type=int, default=4, help="aantal parallelle verzoeken")
+    feed.add_argument(
+        "--verzoeken-per-seconde",
+        type=float,
+        default=6.0,
+        help="bovengrens aan het tempo van uitgaande verzoeken; de gateway van "
+        "de feed knijpt af (HTTP 429) als het te snel gaat (standaard 6)",
+    )
     feed.add_argument("--limit", type=int, default=0, help="alleen de eerste N landen toetsen")
     feed.add_argument(
         "--allow-isocode",
@@ -126,6 +133,7 @@ def _settings_from_args(args: argparse.Namespace) -> Settings:
         timeout=args.timeout,
         retries=args.retries,
         workers=args.workers,
+        requests_per_second=args.verzoeken_per_seconde,
         check_files=args.check_files,
         check_website=args.check_website,
         limit=args.limit,

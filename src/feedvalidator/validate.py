@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 
-from .client import FeedClient, FeedError
+from .client import FeedClient, FeedError, RateLimitError
 from .config import Settings
 from .models import CountryRecord, FeedSnapshot, Report, RuleResult, Severity
 from .parsing import as_text
@@ -58,11 +59,11 @@ def fetch_snapshot(
         else:
             snapshot.emergency_info = waarde
 
-    landen = [
-        land
-        for land in snapshot.countries
-        if as_text(land.get("locationkey")) not in settings.excluded_countries
-    ]
+    # Ook uitgesloten landen worden opgehaald. Een uitsluiting betekent "dit
+    # land beoordeel ik niet", niet "dit land bestaat niet": een post in een
+    # uitgesloten land kan het adres dragen waar een ander land naar verwijst.
+    # Het filteren gebeurt in run_rules.
+    landen = snapshot.countries
     if settings.limit:
         landen = landen[: settings.limit]
 
@@ -84,6 +85,7 @@ def fetch_snapshot(
             progress("landen", gedaan, totaal)
 
     resolve_addresses(snapshot)
+    snapshot.rate_limited = client.rate_limited
     return snapshot
 
 
@@ -95,11 +97,18 @@ def _enrich(client: FeedClient, record: CountryRecord, settings: Settings) -> Co
 
     try:
         record.traveladvice = client.get_traveladvice(record.locationkey)
+    except RateLimitError as exc:
+        record.fetch_errors["traveladvice"] = str(exc)
+        record.rate_limited = True
     except FeedError as exc:
         record.fetch_errors["traveladvice"] = str(exc)
 
     try:
         index = client.get_representations(record.locationkey)
+    except RateLimitError as exc:
+        record.fetch_errors["nl-representation"] = str(exc)
+        record.rate_limited = True
+        index = []
     except FeedError as exc:
         record.fetch_errors["nl-representation"] = str(exc)
         index = []
@@ -111,6 +120,10 @@ def _enrich(client: FeedClient, record: CountryRecord, settings: Settings) -> Co
             continue
         try:
             record.representations.append(client.get_representation(record.locationkey, rep_id))
+        except RateLimitError as exc:
+            record.fetch_errors[f"nl-representation/{rep_id}"] = str(exc)
+            record.rate_limited = True
+            record.representations.append(vertegenwoordiging)
         except FeedError as exc:
             record.fetch_errors[f"nl-representation/{rep_id}"] = str(exc)
             record.representations.append(vertegenwoordiging)
@@ -155,30 +168,51 @@ def _probe_maps(client: FeedClient, traveladvice: dict[str, Any]) -> list[dict[s
     return probes
 
 
+#: ".../countries/<iso>/nl-representation/..." — het land waar een
+#: vertegenwoordiging thuishoort, zoals de feed het in dataurl zet.
+_LAND_IN_DATAURL = re.compile(r"/countries/([a-z0-9-]+)/nl-representation", re.IGNORECASE)
+
+
 def resolve_addresses(snapshot: FeedSnapshot) -> None:
     """Zoek op welke vertegenwoordigingen hun adres bij een andere post hebben.
 
-    Niet elk land heeft een eigen ambassade. Zo'n land krijgt in de feed een
-    verwijzing naar de post die het bedient — hetzelfde ``id``, met een
-    ``dataurl`` die naar het andere land wijst, maar zonder adresregels. Het
-    adres staat dan bij dat andere land. Deze functie legt die koppeling, zodat
-    een verwijzing niet als een ontbrekend adres wordt geteld.
+    Niet elk land heeft een eigen ambassade. Amerikaans-Samoa wordt bediend
+    vanuit Wellington: in de feed staat daar een vertegenwoordiging met
+    hetzelfde ``id`` als die van Nieuw-Zeeland en met een ``dataurl`` die naar
+    dat land wijst, maar zonder adresregels. Het adres staat achter die link.
+
+    Die link is het betrouwbaarste signaal: hij is er ook als het andere land
+    niet is opgehaald. Als extra bevestiging kijken we of het adres inderdaad
+    ergens in de feed onder hetzelfde ``id`` staat.
     """
     met_adres: dict[str, str] = {}
+    naam_per_isocode: dict[str, str] = {}
     for record in snapshot.records:
+        naam = record.location or record.locationkey
+        if record.isocode:
+            naam_per_isocode[record.isocode.lower()] = naam
         for vertegenwoordiging in record.representations:
             rep_id = as_text(vertegenwoordiging.get("id"))
             if rep_id and as_text(vertegenwoordiging.get("address")):
-                met_adres.setdefault(rep_id, record.location or record.locationkey)
+                met_adres.setdefault(rep_id, naam)
 
     for record in snapshot.records:
+        eigen_naam = record.location or record.locationkey
+        eigen_isocode = (record.isocode or "").lower()
         elders = {}
         for vertegenwoordiging in record.representations:
             rep_id = as_text(vertegenwoordiging.get("id"))
             if not rep_id or as_text(vertegenwoordiging.get("address")):
                 continue
+
+            gevonden = _LAND_IN_DATAURL.search(as_text(vertegenwoordiging.get("dataurl")))
+            doel = gevonden.group(1).lower() if gevonden else ""
+            if doel and doel != eigen_isocode:
+                elders[rep_id] = naam_per_isocode.get(doel, doel.upper())
+                continue
+
             bron = met_adres.get(rep_id)
-            if bron and bron != (record.location or record.locationkey):
+            if bron and bron != eigen_naam:
                 elders[rep_id] = bron
         record.address_elsewhere = elders
 

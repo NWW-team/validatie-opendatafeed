@@ -11,6 +11,20 @@ identieke uitkomsten.
 **0 blokkerende bevindingen, 18 waarschuwingen en 127 informatieve
 meldingen** over 226 getoetste landen.
 
+## Let op: de feed knijpt af
+
+De gateway antwoordt met HTTP 429 als de verzoeken te snel gaan. Een eerdere
+ronde vanaf een GitHub-runner liep daar tegenaan en rapporteerde daardoor 44
+"reisadviezen niet op te halen", 49 landen zonder vertegenwoordiging en 208 in
+plaats van 253 vertegenwoordigingen. Dat waren geen feedproblemen maar te
+snelle verzoeken.
+
+Sindsdien blijft de validator onder een instelbaar tempo (standaard zes
+verzoeken per seconde, vier tegelijk) en volgt hij `Retry-After`. Een volledige
+ronde duurt daarmee ongeveer twee minuten. Wordt er tóch afgeknepen, dan meldt
+regel F10 dat het rapport onvolledig is en zwijgen L01 en L17 erover — een
+afgeknepen verzoek is geen ontbrekend reisadvies.
+
 ## Vaticaanstad: uitgesloten, en waarom
 
 De feed bevat 227 landen en 226 reisadviezen. Het verschil is Heilige Stoel /
@@ -35,10 +49,10 @@ schoonmaken van die pointer in het CMS blijft een aanbeveling.
   redactionele omissie per post, maar een gat in de feed zelf: een afnemer kan
   deze gegevens nergens vandaan halen.
 - **Vijf posten zonder adres** (L18): Kaboel, Tripoli, St. Petersburg,
-  Khartoem en Damascus — allemaal gesloten of opgeschort. De 109 andere
-  vertegenwoordigingen zonder eigen adresregels zijn verwijzingen naar een
-  post in een ander land; hun adres staat daar wél, en de validator legt die
-  koppeling via het gedeelde `id`.
+  Khartoem en Damascus — allemaal gesloten of opgeschort. Van de 114
+  vertegenwoordigingen zonder eigen adresregels wijzen er 109 met hun
+  `dataurl` naar een post in een ánder land; daar staat het adres, en die
+  verwijzing telt dus als een adres. Alleen deze vijf verwijzen naar zichzelf.
 - **Twee datums lopen uiteen** (L12, informatief): bij 78 landen wijkt het technische veld
   `lastmodified` af van de getoonde "Laatst gewijzigd op". Een afnemer die op
   `lastmodified` sorteert of cachet, laat dus een andere datum zien dan de
