@@ -135,6 +135,9 @@ class Report:
     fetch_errors: dict[str, str] = field(default_factory=dict)
     #: Landen die op verzoek buiten beschouwing zijn gelaten.
     excluded: list[str] = field(default_factory=list)
+    #: Posten die als gesloten zijn aangemerkt en daarom geen adres hoeven te
+    #: hebben.
+    closed_posts: list[str] = field(default_factory=list)
 
     @property
     def findings(self) -> list[Finding]:
@@ -179,5 +182,6 @@ class Report:
             },
             "fetch_errors": self.fetch_errors,
             "excluded": self.excluded,
+            "closed_posts": self.closed_posts,
             "results": [r.to_dict() for r in self.results],
         }

@@ -262,6 +262,7 @@ def run_rules(snapshot: FeedSnapshot, settings: Settings, duration: float = 0.0)
         results=results,
         fetch_errors=dict(snapshot.fetch_errors),
         excluded=_excluded_labels(snapshot, settings),
+        closed_posts=_closed_post_labels(snapshot, settings),
     )
 
 
@@ -285,6 +286,19 @@ def _excluded_labels(snapshot: FeedSnapshot, settings: Settings) -> list[str]:
     return sorted(
         f"{namen[key]} ({key})" if namen.get(key) else key
         for key in settings.excluded_countries
+    )
+
+
+def _closed_post_labels(snapshot: FeedSnapshot, settings: Settings) -> list[str]:
+    """De als gesloten aangemerkte posten met hun naam, voor in het rapport."""
+    namen = {
+        as_text(v.get("id")): as_text(v.get("title"))
+        for record in snapshot.records
+        for v in record.representations
+    }
+    return sorted(
+        f"{namen[post]} ({post})" if namen.get(post) else post
+        for post in settings.closed_posts
     )
 
 

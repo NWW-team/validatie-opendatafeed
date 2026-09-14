@@ -27,7 +27,7 @@ reken op twee tot drie minuten.
 
 ## Wat er gecontroleerd wordt
 
-31 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
+32 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
 (`L…`). `feedvalidator regels` toont ze met uitleg; kort samengevat:
 
 | Onderwerp | Regels |
@@ -35,8 +35,8 @@ reken op twee tot drie minuten.
 | Bereikbaarheid en dekking | alle endpoints antwoorden, elk land heeft een reisadvies, geen weesadviezen, unieke ISO-codes en landsleutels, hulp-bij-nood aanwezig |
 | Inhoud van het reisadvies | titel, introductie, inhoudscategorieën met gevulde tekstblokken |
 | Kaarten | kaart aanwezig, volledig beschreven, en met `--check-files` ook daadwerkelijk op te halen |
-| Datums | leesbare wijzigingsdatum, technische en getoonde datum gelijk, niet in de toekomst, geldigheidsdatum recent |
-| Pushdatum (`issued`) | aanwezig en leesbaar, niet in de toekomst, niet vóór de eerste publicatie, en een recente wijziging is ook gepusht |
+| Datums | leesbare wijzigingsdatum, niet in de toekomst, geldigheidsdatum recent, en de drie datums naast elkaar met een duiding |
+| Pushdatum (`issued`) | aanwezig en leesbaar, niet in de toekomst, niet vóór de eerste publicatie |
 | Ambassades en consulaten | vertegenwoordiging aanwezig, adres ergens in de feed te vinden, contactvelden komen door de feed heen |
 | Vergelijking met de website | met `--check-website`: toont nederlandwereldwijd.nl dezelfde wijzigingsdatum als de feed |
 
@@ -74,6 +74,7 @@ feed te belasten.
 | `--check-website` | wijzigingsdatum vergelijken met nederlandwereldwijd.nl |
 | `--allow-isocode CODE` | een landcode accepteren die van ISO 3166-1 afwijkt (herhaalbaar) |
 | `--negeer-land SLEUTEL` | een land buiten beschouwing laten, bijvoorbeeld omdat er bewust geen reisadvies van is (herhaalbaar) |
+| `--gesloten-post POST` | een post die gesloten is en daarom geen adres heeft (herhaalbaar) |
 | `--geldigheid-max-dagen N` | drempel voor "Nog steeds geldig op" (standaard 180) |
 | `--push-venster-dagen N` | hoe ver terug een wijziging "recent" heet bij het toetsen op een push (standaard 30) |
 | `--fail-on error\|warning\|never` | wanneer de exitcode 1 wordt |
@@ -114,11 +115,22 @@ weg naar een verkeerde conclusie:
 | `lastmodified` | technische timestamp van élke bewerking, ook een typefout | caches en sorteringen bij afnemers |
 | `issued` | het moment waarop het advies actief is gepusht | de Reisapp (notificatie) en de informatieservice (bericht) |
 
-Ze lopen in de praktijk uiteen, en dat mag: een correctie verspringt wel
-`lastmodified` maar niet de getoonde datum, en verdient geen notificatie. Om
-die reden meldt L12 alleen informatief dat de technische en de getoonde datum
-verschillen. L23 kijkt naar het geval dat er wél toe doet: een wijziging van
-de afgelopen `--push-venster-dagen` waar geen push op volgde.
+Regel L12 zet ze naast elkaar en trekt de conclusie, voor alles wat binnen
+`--push-venster-dagen` is gebeurd:
+
+```
+Australië   getoond 09-09-2026 · gewijzigd 09-09-2026 · gepusht 07-08-2023
+            — gewijzigd, niet gepusht: de laatste push is 1129 dagen ouder
+Algerije    getoond 30-07-2026 · gewijzigd 31-07-2026 · gepusht 07-08-2023
+            — stil gewijzigd: de lezer ziet 30-07-2026, maar het advies is
+              daarna nog aangepast en er is niet gepusht
+```
+
+Staat `issued` vooraan, dan is de push de laatste beweging en zwijgt de regel:
+dat is precies zoals het hoort. De drie mogen dus best uiteenlopen — een
+typefout verspringt wel `lastmodified` maar verdient geen notificatie — maar
+in één oogopslag is te zien welke van de drie het laatst is en wat dat
+betekent.
 
 ## Posten die een ander land bedienen
 
@@ -135,7 +147,34 @@ werkt ook als dat andere land buiten de ronde viel.
 
 L18 meldt daarom alleen een post die naar zichzelf verwijst en tóch geen
 adresregels heeft. In de peiling zijn dat er vijf: Kaboel, Tripoli,
-St. Petersburg, Khartoem en Damascus — allemaal gesloten of opgeschort.
+St. Petersburg, Khartoem en Damascus. Die posten zijn gesloten en worden door
+geen andere post waargenomen; er valt dus niets te bezoeken en niets te
+melden. Ze staan met `--gesloten-post` als bekend gemerkt, zodat ze uit de
+waarschuwingen blijven maar wél met naam in het rapport staan.
+
+Die vlag is geen doofpot: regel **F12** kijkt of de aanname nog klopt. Krijgt
+zo'n post weer een adres, wordt hij waargenomen vanuit een ander land, of
+verdwijnt hij uit de feed, dan meldt het rapport dat de vlag weg kan. En een
+níeuwe post zonder adres blijft gewoon een waarschuwing — dat is precies
+waarom een expliciete uitzondering beter is dan de regel afzwakken.
+
+Andersom wordt het ook benoemd: regel F11 vermeldt in één informatieve regel
+hoeveel landen vanuit een post in een ander land worden bediend, zodat
+zichtbaar blijft dat die adressen er wél zijn.
+
+## Landen binnen het Koninkrijk
+
+Aruba, Curaçao en Sint Maarten zijn zelfstandige landen binnen het Koninkrijk.
+Daar staat geen Nederlandse ambassade maar een Nederlandse vertegenwoordiging,
+in Oranjestad, Willemstad en Philipsburg. Het reisadvies noemt die met naam en
+link — maar als record in `nl-representation` ontbreken ze.
+
+Een afnemer die contactgegevens uit de feed haalt, ziet voor die landen dus
+niets, terwijl de lopende tekst er wel naar verwijst. L17 meldt dat nu ook zo,
+met de plaatsnaam erbij, in plaats van het kale "geen vertegenwoordiging".
+
+Bonaire, Saba en Sint Eustatius zijn Caribisch Nederland en noemen geen
+vertegenwoordiging; daar valt niets te koppelen.
 
 ## Over de feed
 

@@ -196,15 +196,65 @@ def test_l11_meldt_een_onleesbare_wijzigingsdatum(settings):
     assert "niet te lezen" in draai("L11", rommel, settings)[0].message
 
 
-def test_l12_ziet_verschil_tussen_getoonde_en_technische_datum(settings):
+def test_l12_toont_de_drie_datums_bij_een_wijziging_zonder_push(settings):
     record = maak_record(
         traveladvice=maak_reisadvies(
-            modificationdate=f"Laatst gewijzigd op: {nl_datum(30)} | "
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
             f"Nog steeds geldig op: {nl_datum(1)}",
-            lastmodified=iso_datum(2),
+            lastmodified=iso_datum(5),
+            issued=iso_datum(400),
         )
     )
-    assert len(draai("L12", record, settings)) == 1
+
+    bevinding = draai("L12", record, settings)[0]
+
+    assert "getoond" in bevinding.message
+    assert "gewijzigd" in bevinding.message
+    assert "gepusht" in bevinding.message
+    assert bevinding.detail["duiding"] == "gewijzigd, niet gepusht"
+
+
+def test_l12_herkent_een_stille_wijziging(settings):
+    # De lezer ziet een oudere datum dan het moment waarop er is bewerkt.
+    record = maak_record(
+        traveladvice=maak_reisadvies(
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(10)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            lastmodified=iso_datum(3),
+            issued=iso_datum(400),
+        )
+    )
+
+    bevinding = draai("L12", record, settings)[0]
+
+    assert bevinding.detail["duiding"] == "stil gewijzigd"
+    assert "de lezer ziet" in bevinding.message
+
+
+def test_l12_zwijgt_als_de_push_de_laatste_beweging_is(settings):
+    record = maak_record(
+        traveladvice=maak_reisadvies(
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            lastmodified=iso_datum(5),
+            issued=iso_datum(2),
+        )
+    )
+
+    assert draai("L12", record, settings) == []
+
+
+def test_l12_zwijgt_over_beweging_buiten_het_venster(settings):
+    record = maak_record(
+        traveladvice=maak_reisadvies(
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(200)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            lastmodified=iso_datum(200),
+            issued=iso_datum(400),
+        )
+    )
+
+    assert draai("L12", record, settings) == []
 
 
 def test_l13_meldt_een_datum_in_de_toekomst(settings):
@@ -240,10 +290,59 @@ def test_l17_meldt_een_land_zonder_vertegenwoordiging(settings):
     assert "niet op te halen" in draai("L17", stuk, settings)[0].message
 
 
+def test_l17_noemt_de_vertegenwoordiging_die_alleen_in_de_tekst_staat(settings):
+    # Aruba is een zelfstandig land binnen het Koninkrijk: geen ambassade, wel
+    # een vertegenwoordiging — die in de tekst staat maar niet als record.
+    aruba = maak_record(
+        locationkey="aruba",
+        location="Aruba",
+        isocode="ABW",
+        representations=[],
+        traveladvice=maak_reisadvies(
+            introduction="<p>Aruba is een zelfstandig land binnen het Koninkrijk der "
+            "Nederlanden. Daarom is er geen Nederlandse ambassade op Aruba, maar een "
+            "Nederlandse vertegenwoordiging. Neem in geval van nood contact op met de "
+            "<a href='...'>Nederlandse Vertegenwoordiging in Oranjestad</a>.</p>"
+        ),
+    )
+
+    bevinding = draai("L17", aruba, settings)[0]
+
+    assert "Nederlandse Vertegenwoordiging in Oranjestad" in bevinding.message
+    assert "staat niet bij de vertegenwoordigingen in de feed" in bevinding.message
+    assert bevinding.detail["genoemd"] == "Oranjestad"
+
+
+def test_l17_noemt_de_post_ook_bij_een_kapot_endpoint(settings):
+    sint_maarten = maak_record(
+        representations=[],
+        fetch_errors={"nl-representation": "HTTP 404"},
+        traveladvice=maak_reisadvies(
+            additionalinformation="<p>Neem contact op met de Nederlandse "
+            "Vertegenwoordiging in Philipsburg.</p>"
+        ),
+    )
+
+    bericht = draai("L17", sint_maarten, settings)[0].message
+
+    assert "niet op te halen" in bericht
+    assert "Philipsburg" in bericht
+
+
+def test_l17_zwijgt_over_de_tekst_als_de_vertegenwoordiging_er_wel_is(settings):
+    # Caribisch Nederland: geen vertegenwoordiging én geen vermelding.
+    bonaire = maak_record(locationkey="bonaire", location="Bonaire", isocode="BQ-BO",
+                          representations=[])
+
+    assert draai("L17", bonaire, settings)[0].message == (
+        "Er staat geen Nederlandse vertegenwoordiging bij dit land."
+    )
+
+
 def test_l18_meldt_een_post_waarvan_het_adres_nergens_staat(settings):
     kaal = maak_vertegenwoordiging(address=[""])
     bevinding = draai("L18", maak_record(representations=[kaal]), settings)[0]
-    assert "nergens in de feed een adres" in bevinding.message
+    assert "nergens een adres" in bevinding.message
 
 
 def test_l18_laat_een_ambassade_met_adres_met_rust(settings):
@@ -322,43 +421,6 @@ def test_l22_meldt_een_push_van_voor_de_eerste_publicatie(settings):
     assert draai("L22", maak_record(), settings) == []
 
 
-def test_l23_meldt_een_recente_wijziging_die_niet_gepusht_is(settings):
-    # Vijf dagen geleden gewijzigd, maar de laatste push was een jaar eerder.
-    record = maak_record(
-        traveladvice=maak_reisadvies(
-            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
-            f"Nog steeds geldig op: {nl_datum(1)}",
-            issued=iso_datum(370),
-        )
-    )
-    bevinding = draai("L23", record, settings)[0]
-    assert "de laatste push was" in bevinding.message
-    assert bevinding.detail["venster_dagen"] == 30
-
-
-def test_l23_zwijgt_over_een_oude_wijziging_buiten_het_venster(settings):
-    # Buiten het venster: dit is de normale toestand van een stabiel advies.
-    record = maak_record(
-        traveladvice=maak_reisadvies(
-            modificationdate=f"Laatst gewijzigd op: {nl_datum(200)} | "
-            f"Nog steeds geldig op: {nl_datum(1)}",
-            issued=iso_datum(370),
-        )
-    )
-    assert draai("L23", record, settings) == []
-
-
-def test_l23_zwijgt_als_de_push_na_de_wijziging_kwam(settings):
-    record = maak_record(
-        traveladvice=maak_reisadvies(
-            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
-            f"Nog steeds geldig op: {nl_datum(1)}",
-            issued=iso_datum(4),
-        )
-    )
-    assert draai("L23", record, settings) == []
-
-
 def test_f09_meldt_een_bulkpush(settings):
     # Eén en dezelfde timestamp: zo ziet een bulkactie eruit in de feed.
     bulkmoment = "2023-08-07T20:26:00.000Z"
@@ -427,3 +489,79 @@ def test_l17_verwijt_de_feed_niets_bij_een_afgeknepen_verzoek(settings):
         fetch_errors={"nl-representation": "werd afgeknepen (HTTP 429)"},
     )
     assert draai("L17", afgeknepen, settings) == []
+
+
+def test_f11_benoemt_de_landen_die_vanuit_een_andere_post_worden_bediend(settings):
+    bediend = maak_record(
+        locationkey="amerikaans-samoa", location="Amerikaans-Samoa", isocode="ASM",
+        address_elsewhere={"ambassade-wellington": "Nieuw-Zeeland"},
+    )
+    snapshot = maak_snapshot([maak_record(), bediend])
+
+    bevinding = draai("F11", snapshot, settings)[0]
+
+    assert "bediend door een post in een ander land" in bevinding.message
+    assert bevinding.detail == {"aantal_landen": 1, "aantal_posten": 1}
+
+
+def test_f11_zwijgt_als_elk_land_een_eigen_post_heeft(settings):
+    assert draai("F11", maak_snapshot(), settings) == []
+
+
+def test_l18_legt_uit_waarom_er_geen_adres_is(settings):
+    kaal = maak_vertegenwoordiging(address=[""])
+    bericht = draai("L18", maak_record(representations=[kaal]), settings)[0].message
+    assert "verwijst ook niet naar een post in een ander land" in bericht
+
+
+def test_l18_zwijgt_over_een_post_die_als_gesloten_is_aangemerkt():
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+    kaal = maak_vertegenwoordiging(id="ambassade-kaboel", address=[""])
+
+    assert draai("L18", maak_record(representations=[kaal]), gesloten) == []
+    assert len(draai("L18", maak_record(representations=[kaal]), Settings())) == 1
+
+
+def test_l18_meldt_een_andere_post_zonder_adres_nog_steeds():
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+    nieuw_probleem = maak_vertegenwoordiging(id="ambassade-tripoli", address=[""])
+
+    assert len(draai("L18", maak_record(representations=[nieuw_probleem]), gesloten)) == 1
+
+
+def test_f12_meldt_een_post_die_weer_een_adres_heeft():
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+    heropend = maak_vertegenwoordiging(id="ambassade-kaboel", address=["Straat 1", "Kaboel"])
+
+    bevinding = draai("F12", maak_snapshot([maak_record(representations=[heropend])]), gesloten)[0]
+
+    assert "heeft weer een adres" in bevinding.message
+    assert bevinding.detail["reden"] == "adres teruggekomen"
+
+
+def test_f12_meldt_een_post_die_wordt_waargenomen():
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+    waargenomen = maak_record(
+        representations=[maak_vertegenwoordiging(id="ambassade-kaboel", address=[""])],
+        address_elsewhere={"ambassade-kaboel": "Pakistan"},
+    )
+
+    bevinding = draai("F12", maak_snapshot([waargenomen]), gesloten)[0]
+
+    assert "waargenomen vanuit Pakistan" in bevinding.message
+
+
+def test_f12_meldt_een_post_die_uit_de_feed_verdwenen_is():
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+
+    bevinding = draai("F12", maak_snapshot(), gesloten)[0]
+
+    assert "staat niet meer in de feed" in bevinding.message
+
+
+def test_f12_zwijgt_zolang_de_post_gesloten_is(settings):
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+    kaal = maak_vertegenwoordiging(id="ambassade-kaboel", address=[""])
+
+    assert draai("F12", maak_snapshot([maak_record(representations=[kaal])]), gesloten) == []
+    assert draai("F12", maak_snapshot(), settings) == []

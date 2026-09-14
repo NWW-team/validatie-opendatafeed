@@ -8,6 +8,7 @@ heeft.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
@@ -327,6 +328,81 @@ def check_rate_limiting(snapshot: FeedSnapshot, settings: Settings) -> Iterator[
     )
 
 
+@feed_rule(
+    "F11",
+    "Landen die vanuit een andere post worden bediend",
+    "Niet elk land heeft een eigen ambassade. Deze landen verwijzen naar de "
+    "post die hen bedient; hun adres staat achter die verwijzing, bij dat "
+    "andere land. Puur ter informatie: dit is hoe de feed het hoort te doen.",
+    Severity.INFO,
+)
+def check_served_elsewhere(snapshot: FeedSnapshot, settings: Settings) -> Iterator[Finding]:
+    bediend = {
+        record.location or record.locationkey: sorted(set(record.address_elsewhere.values()))
+        for record in snapshot.records
+        if record.address_elsewhere
+    }
+    if not bediend:
+        return
+    landen = sorted(set().union(*bediend.values()))
+    yield _make(
+        "F11",
+        f"{len(bediend)} landen worden bediend door een post in een ander land; "
+        f"hun adres staat in de feed bij {len(landen)} andere landen.",
+        aantal_landen=len(bediend),
+        aantal_posten=len(landen),
+    )
+
+
+@feed_rule(
+    "F12",
+    "Elke gesloten post is nog gesloten",
+    "Een post die als gesloten is aangemerkt hoeft geen adres te hebben. Komt "
+    "dat adres terug, of neemt een post in een ander land het over, dan is de "
+    "post niet meer gesloten en kan de vlag weg. Zo blijft de instelling "
+    "meegroeien met de werkelijkheid in plaats van een oude aanname te "
+    "verbergen.",
+    Severity.INFO,
+)
+def check_closed_posts(snapshot: FeedSnapshot, settings: Settings) -> Iterator[Finding]:
+    if not settings.closed_posts:
+        return
+    gezien: set[str] = set()
+    for record in snapshot.records:
+        for vertegenwoordiging in record.representations:
+            rep_id = as_text(vertegenwoordiging.get("id"))
+            if rep_id not in settings.closed_posts:
+                continue
+            gezien.add(rep_id)
+            naam = as_text(vertegenwoordiging.get("title")) or rep_id
+            if as_text(vertegenwoordiging.get("address")):
+                yield _make(
+                    "F12",
+                    f"Post '{naam}' heeft weer een adres; de vlag "
+                    f"--gesloten-post {rep_id} kan weg.",
+                    post=rep_id,
+                    reden="adres teruggekomen",
+                )
+            elif record.address_elsewhere.get(rep_id):
+                yield _make(
+                    "F12",
+                    f"Post '{naam}' wordt nu waargenomen vanuit "
+                    f"{record.address_elsewhere[rep_id]}; de vlag "
+                    f"--gesloten-post {rep_id} kan weg.",
+                    post=rep_id,
+                    reden="waargenomen door een andere post",
+                )
+
+    for rep_id in sorted(settings.closed_posts - gezien):
+        yield _make(
+            "F12",
+            f"Post '{rep_id}' staat niet meer in de feed; de vlag "
+            f"--gesloten-post {rep_id} kan weg.",
+            post=rep_id,
+            reden="niet meer in de feed",
+        )
+
+
 # --------------------------------------------------------------------------
 # Regels per land
 # --------------------------------------------------------------------------
@@ -568,37 +644,51 @@ def check_modification_date(record: CountryRecord, settings: Settings) -> Iterat
 
 @country_rule(
     "L12",
-    "De technische en de getoonde wijzigingsdatum komen overeen",
-    "Het veld lastmodified stuurt caches aan, de getoonde datum stuurt de "
-    "gebruiker aan. Ze mogen uiteenlopen — lastmodified verspringt ook bij een "
-    "typefout, de getoonde datum alleen bij een inhoudelijke wijziging — maar "
-    "een afnemer die op lastmodified sorteert of cachet, toont dan een andere "
-    "datum dan de website. Signaal, geen defect.",
+    "Wijziging, stille wijziging en push in beeld",
+    "Een reisadvies draagt drie datums: de getoonde 'Laatst gewijzigd op', het "
+    "technische lastmodified dat bij élke bewerking verspringt, en issued: het "
+    "moment van de push waar de Reisapp en de informatieservice op afgaan. "
+    "Staat de push niet vooraan, dan is er na de laatste melding nog iets "
+    "gebeurd — zichtbaar voor de lezer, of stil. Deze regel zet de drie naast "
+    "elkaar voor alles wat binnen --push-venster-dagen is gebeurd.",
     Severity.INFO,
 )
-def check_modification_consistency(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
+def check_date_picture(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
     if record.traveladvice is None:
         return
     getoond = modification_date(as_text(record.traveladvice.get("modificationdate")))
-    technisch = parse_iso_datetime(as_text(record.traveladvice.get("lastmodified")))
-    if getoond is None or technisch is None:
-        if technisch is None and as_text(record.traveladvice.get("lastmodified")):
-            yield _make(
-                "L12",
-                f"Het veld lastmodified is geen geldige timestamp: "
-                f"'{as_text(record.traveladvice.get('lastmodified'))}'.",
-                record,
-            )
+    gewijzigd = local_date(parse_iso_datetime(as_text(record.traveladvice.get("lastmodified"))))
+    gepusht = local_date(parse_iso_datetime(as_text(record.traveladvice.get("issued"))))
+    if not (getoond and gewijzigd and gepusht):
         return
-    if technisch.date() != getoond:
-        yield _make(
-            "L12",
-            f"De getoonde wijzigingsdatum is {getoond:%d-%m-%Y}, maar lastmodified staat op "
-            f"{technisch.date():%d-%m-%Y}.",
-            record,
-            getoond=getoond.isoformat(),
-            lastmodified=technisch.isoformat(),
+
+    nieuwste = max(getoond, gewijzigd, gepusht)
+    if nieuwste == gepusht:
+        return  # de push is de laatste beweging: precies zoals het hoort
+    if (_today() - nieuwste).days > settings.thresholds.push_venster_dagen:
+        return  # oud nieuws; alleen recente beweging vraagt om aandacht
+
+    if gewijzigd > getoond:
+        duiding = (
+            f"stil gewijzigd: de lezer ziet {getoond:%d-%m-%Y}, maar het advies is "
+            "daarna nog aangepast en er is niet gepusht"
         )
+    else:
+        duiding = (
+            f"gewijzigd, niet gepusht: de laatste push is "
+            f"{(getoond - gepusht).days} dagen ouder dan de wijziging"
+        )
+
+    yield _make(
+        "L12",
+        f"getoond {getoond:%d-%m-%Y} · gewijzigd {gewijzigd:%d-%m-%Y} · "
+        f"gepusht {gepusht:%d-%m-%Y} — {duiding}.",
+        record,
+        getoond=getoond.isoformat(),
+        gewijzigd=gewijzigd.isoformat(),
+        gepusht=gepusht.isoformat(),
+        duiding="stil gewijzigd" if gewijzigd > getoond else "gewijzigd, niet gepusht",
+    )
 
 
 @country_rule(
@@ -706,22 +796,44 @@ def check_canonical(record: CountryRecord, settings: Settings) -> Iterator[Findi
 @country_rule(
     "L17",
     "Het land heeft een Nederlandse vertegenwoordiging in de feed",
-    "Ambassade- en consulaatgegevens horen bij het reisadvies; ontbreken ze, "
-    "dan ziet een reiziger geen contactmogelijkheid.",
+    "Ambassade- en consulaatgegevens horen bij het reisadvies. Noemt de tekst "
+    "wél een Nederlandse vertegenwoordiging terwijl die niet als record in de "
+    "feed staat, dan ziet een afnemer die contactgegevens uit de feed haalt "
+    "niets — ook al staat het in de lopende tekst.",
     Severity.WARNING,
 )
 def check_representation_present(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
     if record.rate_limited:
         return  # zie F10
-    if record.fetch_errors.get("nl-representation"):
+    genoemd = _genoemde_vertegenwoordiging(record.traveladvice)
+
+    fout = record.fetch_errors.get("nl-representation")
+    if fout:
+        extra = (
+            f" Het reisadvies noemt de Nederlandse Vertegenwoordiging in {genoemd}."
+            if genoemd
+            else ""
+        )
         yield _make(
             "L17",
-            "Vertegenwoordigingen zijn niet op te halen: "
-            f"{record.fetch_errors['nl-representation']}",
+            f"Vertegenwoordigingen zijn niet op te halen: {fout}{extra}",
             record,
+            genoemd=genoemd,
         )
         return
-    if not record.representations:
+
+    if record.representations:
+        return
+
+    if genoemd:
+        yield _make(
+            "L17",
+            f"Het reisadvies verwijst naar de Nederlandse Vertegenwoordiging in "
+            f"{genoemd}, maar die staat niet bij de vertegenwoordigingen in de feed.",
+            record,
+            genoemd=genoemd,
+        )
+    else:
         yield _make("L17", "Er staat geen Nederlandse vertegenwoordiging bij dit land.", record)
 
 
@@ -744,9 +856,12 @@ def check_representation_address(record: CountryRecord, settings: Settings) -> I
             continue
         if record.address_elsewhere.get(rep_id):
             continue
+        if rep_id in settings.closed_posts:
+            continue  # bekend gesloten; F12 let op of dat zo blijft
         yield _make(
             "L18",
-            f"Vertegenwoordiging '{naam}' heeft nergens in de feed een adres.",
+            f"Vertegenwoordiging '{naam}' heeft zelf geen adresregels en verwijst "
+            "ook niet naar een post in een ander land; er is dus nergens een adres.",
             record,
             vertegenwoordiging=naam,
         )
@@ -862,34 +977,38 @@ def check_issued_after_available(record: CountryRecord, settings: Settings) -> I
         )
 
 
-@country_rule(
-    "L23",
-    "Een recente wijziging is ook gepusht",
-    "Staat de getoonde wijzigingsdatum ná de laatste push, dan hebben de "
-    "Reisapp en de informatieservice geen melding gedaan van die wijziging. "
-    "Dat kan een bewuste keuze zijn bij een kleine correctie; bij een inhoudelijke "
-    "wijziging is het een gemiste notificatie.",
-    Severity.INFO,
+
+
+#: "… de Nederlandse Vertegenwoordiging in Oranjestad …" — de plaatsnaam is
+#: één of twee woorden met een hoofdletter.
+_GENOEMDE_POST = re.compile(
+    r"Nederlandse\s+[Vv]ertegenwoordiging\s+(?:in|op)\s+"
+    r"([A-ZÀ-Þ][\wÀ-ÿ'-]*(?:\s[A-ZÀ-Þ][\wÀ-ÿ'-]*)?)"
 )
-def check_change_was_pushed(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
-    if record.traveladvice is None:
-        return
-    gewijzigd = modification_date(as_text(record.traveladvice.get("modificationdate")))
-    gepusht = local_date(parse_iso_datetime(as_text(record.traveladvice.get("issued"))))
-    if not gewijzigd or not gepusht:
-        return
-    venster = settings.thresholds.push_venster_dagen
-    if (_today() - gewijzigd).days > venster or gewijzigd <= gepusht:
-        return
-    yield _make(
-        "L23",
-        f"Gewijzigd op {gewijzigd:%d-%m-%Y}, maar de laatste push was "
-        f"{gepusht:%d-%m-%Y} ({(gewijzigd - gepusht).days} dagen eerder).",
-        record,
-        gewijzigd=gewijzigd.isoformat(),
-        gepusht=gepusht.isoformat(),
-        venster_dagen=venster,
-    )
+
+
+def _genoemde_vertegenwoordiging(traveladvice: dict[str, Any] | None) -> str | None:
+    """De plaats van een vertegenwoordiging die de tekst van het advies noemt.
+
+    Landen binnen het Koninkrijk hebben geen ambassade maar wel een Nederlandse
+    vertegenwoordiging. Die staat in de lopende tekst van het reisadvies; of
+    hij ook als record in de feed staat, is precies wat L17 wil weten.
+    """
+    if not traveladvice:
+        return None
+    stukken = [
+        strip_html(traveladvice.get("introduction")),
+        strip_html(traveladvice.get("additionalinformation")),
+    ]
+    for categorie in traveladvice.get("content") or []:
+        if not isinstance(categorie, dict):
+            continue
+        for blok in categorie.get("contentblocks") or []:
+            if isinstance(blok, dict):
+                stukken.append(strip_html(blok.get("paragraph")))
+
+    gevonden = _GENOEMDE_POST.search(" ".join(stukken))
+    return gevonden.group(1).strip() if gevonden else None
 
 
 def _map_files(traveladvice: dict[str, Any]) -> list[dict[str, Any]]:

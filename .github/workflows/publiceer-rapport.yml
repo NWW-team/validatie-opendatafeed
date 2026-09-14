@@ -41,6 +41,11 @@ jobs:
           feedvalidator --output-dir _site \
             --allow-isocode BQ-BO --allow-isocode BQ-SA --allow-isocode BQ-SE \
             --negeer-land vaticaanstad \
+            --gesloten-post ambassade-kaboel \
+            --gesloten-post ambassade-tripoli \
+            --gesloten-post consulaat-generaal-st-petersburg \
+            --gesloten-post ambassade-khartoem \
+            --gesloten-post ambassade-damascus \
             --fail-on never --quiet
       - uses: actions/upload-pages-artifact@v3
         with:

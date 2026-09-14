@@ -64,4 +64,9 @@ class Settings:
     #: bewust geen reisadvies (meer) van is. Ze worden niet getoetst, maar
     #: wel in het rapport genoemd, zodat niemand ze stilletjes kwijtraakt.
     excluded_countries: frozenset[str] = frozenset()
+    #: Posten waarvan bekend is dat ze gesloten of opgeschort zijn en die geen
+    #: adres hebben omdat er niets te bezoeken valt. Ze worden niet gemeld,
+    #: maar wel in het rapport genoemd — en zodra er weer een adres of een
+    #: waarnemende post opduikt, zegt de validator dat de vlag weg kan.
+    closed_posts: frozenset[str] = frozenset()
     thresholds: Thresholds = field(default_factory=Thresholds)
