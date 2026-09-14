@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import email.utils
 import logging
+import threading
 import time
 from collections.abc import Iterator
 from typing import Any
@@ -17,9 +19,62 @@ logger = logging.getLogger(__name__)
 #: Statuscodes waarbij opnieuw proberen zin heeft.
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
+#: Langste pauze die we accepteren als de feed om geduld vraagt.
+MAX_WACHTTIJD = 60.0
+
 
 class FeedError(RuntimeError):
     """De feed gaf geen bruikbaar antwoord."""
+
+
+class RateLimitError(FeedError):
+    """De feed knijpt het aantal verzoeken af (HTTP 429).
+
+    Dit zegt niets over de inhoud van de feed: het advies bestaat wel, we
+    mochten het alleen niet ophalen. Het rapport moet dat onderscheid maken,
+    anders lijkt een te snelle validatieronde op ontbrekende reisadviezen.
+    """
+
+
+class Throttle:
+    """Houdt het tempo van uitgaande verzoeken onder een bovengrens.
+
+    De feed staat achter een gateway die bij te veel verzoeken per seconde met
+    HTTP 429 antwoordt. Netjes op tempo blijven is effectiever dan achteraf
+    opnieuw proberen.
+    """
+
+    def __init__(self, per_seconde: float):
+        self._interval = 1.0 / per_seconde if per_seconde > 0 else 0.0
+        self._lock = threading.Lock()
+        self._volgende = 0.0
+
+    def wait(self) -> None:
+        if not self._interval:
+            return
+        with self._lock:
+            nu = time.monotonic()
+            wachten = max(0.0, self._volgende - nu)
+            self._volgende = max(nu, self._volgende) + self._interval
+        if wachten:
+            time.sleep(wachten)
+
+
+def retry_after_seconden(response: requests.Response) -> float | None:
+    """Lees de Retry-After header, als getal of als HTTP-datum."""
+    waarde = (response.headers.get("Retry-After") or "").strip()
+    if not waarde:
+        return None
+    try:
+        return max(0.0, float(waarde))
+    except ValueError:
+        pass
+    moment = email.utils.parsedate_to_datetime(waarde)
+    if moment is None:
+        return None
+    from datetime import UTC, datetime
+
+    return max(0.0, (moment - datetime.now(UTC)).total_seconds())
 
 
 class FeedClient:
@@ -37,6 +92,9 @@ class FeedClient:
         self.settings = settings or Settings()
         self.session = session or requests.Session()
         self.session.headers.update({"User-Agent": self.settings.user_agent})
+        self.throttle = Throttle(self.settings.requests_per_second)
+        #: Aantal verzoeken dat ook na alle pogingen werd afgeknepen.
+        self.rate_limited = 0
 
     # -- laag niveau ----------------------------------------------------
 
@@ -47,15 +105,28 @@ class FeedClient:
         """Doe één GET met herhaalpogingen bij tijdelijke fouten."""
         url = self._url(path)
         last_error: Exception | None = None
+        afgeknepen = False
 
         for attempt in range(1, self.settings.retries + 1):
+            self.throttle.wait()
+            pauze = min(2.0 ** (attempt - 1), MAX_WACHTTIJD)
             try:
                 response = self.session.get(url, params=params, timeout=self.settings.timeout)
             except requests.RequestException as exc:  # netwerk-/TLS-fout
                 last_error = exc
                 logger.debug("poging %s voor %s mislukt: %s", attempt, url, exc)
             else:
-                if response.status_code in RETRYABLE_STATUS:
+                if response.status_code == 429:
+                    afgeknepen = True
+                    last_error = FeedError(f"HTTP 429 voor {url}")
+                    # De gateway vraagt om geduld; een korte backoff helpt dan
+                    # niet, dus wachten we langer en volgen we Retry-After.
+                    pauze = min(
+                        max(retry_after_seconden(response) or 0.0, 2.0 * 2 ** (attempt - 1)),
+                        MAX_WACHTTIJD,
+                    )
+                    logger.debug("poging %s voor %s afgeknepen, %.1fs wachten", attempt, url, pauze)
+                elif response.status_code in RETRYABLE_STATUS:
                     last_error = FeedError(f"HTTP {response.status_code} voor {url}")
                     logger.debug(
                         "poging %s voor %s gaf HTTP %s", attempt, url, response.status_code
@@ -64,8 +135,14 @@ class FeedClient:
                     return response
 
             if attempt < self.settings.retries:
-                time.sleep(min(2 ** (attempt - 1), 8))
+                time.sleep(pauze)
 
+        if afgeknepen:
+            self.rate_limited += 1
+            raise RateLimitError(
+                f"{url} werd afgeknepen (HTTP 429) na {self.settings.retries} pogingen; "
+                "verlaag --workers of --verzoeken-per-seconde"
+            )
         raise FeedError(f"{url} bleef falen na {self.settings.retries} pogingen: {last_error}")
 
     def get_json(self, path: str, **params: Any) -> Any:

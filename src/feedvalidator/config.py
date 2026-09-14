@@ -46,8 +46,11 @@ class Settings:
     website_base_url: str = DEFAULT_WEBSITE_BASE_URL
     user_agent: str = DEFAULT_USER_AGENT
     timeout: float = 30.0
-    retries: int = 3
-    workers: int = 8
+    retries: int = 5
+    #: De gateway van de feed knijpt af bij te veel verzoeken per seconde.
+    #: Vier parallelle verzoeken op zes per seconde blijft er ruim onder.
+    workers: int = 4
+    requests_per_second: float = 6.0
     #: Kaartbestanden daadwerkelijk opvragen (extra request per kaart).
     check_files: bool = False
     #: Feed vergelijken met de publiekssite (extra request per land).

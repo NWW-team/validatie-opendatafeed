@@ -64,6 +64,9 @@ class CountryRecord:
     website: dict[str, Any] | None = None
     #: Ophaalfouten per endpoint, zodat een regel niet over None struikelt.
     fetch_errors: dict[str, str] = field(default_factory=dict)
+    #: Of een verzoek voor dit land is afgeknepen (HTTP 429). Dan zegt een
+    #: ontbrekend reisadvies iets over ons tempo, niet over de feed.
+    rate_limited: bool = False
 
 
 @dataclass
@@ -79,6 +82,8 @@ class FeedSnapshot:
     records: list[CountryRecord] = field(default_factory=list)
     #: Fouten op feedniveau (endpoint onbereikbaar e.d.).
     fetch_errors: dict[str, str] = field(default_factory=dict)
+    #: Aantal verzoeken dat de feed heeft afgeknepen (HTTP 429).
+    rate_limited: int = 0
 
 
 @dataclass

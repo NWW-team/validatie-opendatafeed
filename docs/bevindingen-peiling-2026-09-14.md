@@ -11,6 +11,20 @@ identieke uitkomsten.
 **0 blokkerende bevindingen, 18 waarschuwingen en 127 informatieve
 meldingen** over 226 getoetste landen.
 
+## Let op: de feed knijpt af
+
+De gateway antwoordt met HTTP 429 als de verzoeken te snel gaan. Een eerdere
+ronde vanaf een GitHub-runner liep daar tegenaan en rapporteerde daardoor 44
+"reisadviezen niet op te halen", 49 landen zonder vertegenwoordiging en 208 in
+plaats van 253 vertegenwoordigingen. Dat waren geen feedproblemen maar te
+snelle verzoeken.
+
+Sindsdien blijft de validator onder een instelbaar tempo (standaard zes
+verzoeken per seconde, vier tegelijk) en volgt hij `Retry-After`. Een volledige
+ronde duurt daarmee ongeveer twee minuten. Wordt er tóch afgeknepen, dan meldt
+regel F10 dat het rapport onvolledig is en zwijgen L01 en L17 erover — een
+afgeknepen verzoek is geen ontbrekend reisadvies.
+
 ## Vaticaanstad: uitgesloten, en waarom
 
 De feed bevat 227 landen en 226 reisadviezen. Het verschil is Heilige Stoel /

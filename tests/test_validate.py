@@ -25,6 +25,7 @@ class NepClient:
         self.vertegenwoordigingen = vertegenwoordigingen or {}
         self.stuk = set(stuk)
         self.session = None
+        self.rate_limited = 0
         self.opgehaald: list[str] = []
 
     def list_countries(self):
@@ -168,7 +169,9 @@ def test_snapshot_overleeft_opslaan_en_terugladen(tmp_path):
     assert run_rules(terug, ruim).findings == []
 
 
-def test_uitgesloten_land_wordt_niet_opgehaald_en_niet_getoetst():
+def test_uitgesloten_land_wordt_wel_opgehaald_maar_niet_getoetst():
+    # Ophalen blijft nodig: een post in het uitgesloten land kan het adres
+    # dragen waar een ander land naar verwijst.
     client = NepClient(landen("spanje", "vaticaanstad"))
     settings = Settings(
         workers=1,
@@ -178,14 +181,37 @@ def test_uitgesloten_land_wordt_niet_opgehaald_en_niet_getoetst():
 
     snapshot = fetch_snapshot(client, settings)
 
-    assert client.opgehaald == ["spanje"]
-    assert [r.locationkey for r in snapshot.records] == ["spanje"]
-    # De landenlijst zelf blijft compleet, zodat het rapport kan tonen wat er mist.
-    assert len(snapshot.countries) == 2
+    assert sorted(client.opgehaald) == ["spanje", "vaticaanstad"]
+    assert len(snapshot.records) == 2
 
     rapport = run_rules(snapshot, settings)
     assert rapport.countries_checked == 1
     assert rapport.excluded == ["Vaticaanstad (vaticaanstad)"]
+
+
+def test_adres_uit_een_uitgesloten_land_telt_nog_steeds_mee():
+    # Italië verwijst naar de ambassade bij de Heilige Stoel; dat Vaticaanstad
+    # niet getoetst wordt, mag Italië geen bevinding opleveren.
+    heilige_stoel = maak_record(
+        locationkey="vaticaanstad",
+        location="Vaticaanstad",
+        isocode="VAT",
+        representations=[maak_vertegenwoordiging(id="ambassade-vaticaanstad")],
+    )
+    italie = maak_record(
+        locationkey="italie",
+        location="Italië",
+        isocode="ITA",
+        representations=[maak_vertegenwoordiging(id="ambassade-vaticaanstad", address=[""])],
+    )
+    settings = Settings(
+        excluded_countries=frozenset({"vaticaanstad"}),
+        thresholds=Thresholds(min_aantal_reisadviezen=1),
+    )
+
+    rapport = run_rules(maak_snapshot([heilige_stoel, italie]), settings)
+
+    assert [f.rule_id for f in rapport.findings] == []
 
 
 def test_uitsluiting_werkt_ook_op_een_oudere_snapshot():

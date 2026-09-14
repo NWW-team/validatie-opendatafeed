@@ -392,3 +392,38 @@ def test_l19_vergelijkt_ook_de_pushdatum():
     boodschappen = [b.message for b in draai("L19", record, aan)]
 
     assert any("pushdatum" in m for m in boodschappen)
+
+
+def test_f10_meldt_dat_de_ronde_is_afgeknepen(settings):
+    getroffen = maak_record(rate_limited=True, traveladvice=None)
+    snapshot = maak_snapshot([maak_record(), getroffen], rate_limited=12)
+
+    bevinding = draai("F10", snapshot, settings)[0]
+
+    assert "afgeknepen" in bevinding.message
+    assert bevinding.detail == {"verzoeken": 12, "landen": 1}
+
+
+def test_f10_zwijgt_bij_een_ronde_zonder_429(settings):
+    assert draai("F10", maak_snapshot(), settings) == []
+
+
+def test_l01_verwijt_de_feed_niets_bij_een_afgeknepen_verzoek(settings):
+    afgeknepen = maak_record(
+        rate_limited=True,
+        traveladvice=None,
+        fetch_errors={"traveladvice": "werd afgeknepen (HTTP 429)"},
+    )
+    assert draai("L01", afgeknepen, settings) == []
+
+    echt_stuk = maak_record(traveladvice=None, fetch_errors={"traveladvice": "HTTP 500"})
+    assert len(draai("L01", echt_stuk, settings)) == 1
+
+
+def test_l17_verwijt_de_feed_niets_bij_een_afgeknepen_verzoek(settings):
+    afgeknepen = maak_record(
+        rate_limited=True,
+        representations=[],
+        fetch_errors={"nl-representation": "werd afgeknepen (HTTP 429)"},
+    )
+    assert draai("L17", afgeknepen, settings) == []

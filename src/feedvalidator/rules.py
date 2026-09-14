@@ -304,6 +304,29 @@ def check_issued_spread(snapshot: FeedSnapshot, settings: Settings) -> Iterator[
     )
 
 
+@feed_rule(
+    "F10",
+    "De feed heeft de validatieronde niet afgeknepen",
+    "Antwoordt de gateway met HTTP 429, dan mochten we een advies niet ophalen "
+    "en is het rapport onvolledig. Dat zegt niets over de inhoud van de feed: "
+    "zonder dit onderscheid lijkt een te snelle ronde op ontbrekende "
+    "reisadviezen. Verlaag --workers of --verzoeken-per-seconde.",
+    Severity.ERROR,
+)
+def check_rate_limiting(snapshot: FeedSnapshot, settings: Settings) -> Iterator[Finding]:
+    if not snapshot.rate_limited:
+        return
+    getroffen = sum(1 for record in snapshot.records if record.rate_limited)
+    yield _make(
+        "F10",
+        f"{snapshot.rate_limited} verzoek(en) zijn afgeknepen met HTTP 429, "
+        f"waardoor {getroffen} land(en) onvolledig zijn getoetst. Dit rapport is "
+        "geen betrouwbaar beeld van de feed.",
+        verzoeken=snapshot.rate_limited,
+        landen=getroffen,
+    )
+
+
 # --------------------------------------------------------------------------
 # Regels per land
 # --------------------------------------------------------------------------
@@ -317,6 +340,8 @@ def check_issued_spread(snapshot: FeedSnapshot, settings: Settings) -> Iterator[
     Severity.ERROR,
 )
 def check_advice_fetch(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
+    if record.rate_limited:
+        return  # niet de feed maar ons tempo; F10 meldt dit als geheel
     error = record.fetch_errors.get("traveladvice")
     if error:
         yield _make("L01", f"Reisadvies is niet op te halen: {error}", record)
@@ -686,6 +711,8 @@ def check_canonical(record: CountryRecord, settings: Settings) -> Iterator[Findi
     Severity.WARNING,
 )
 def check_representation_present(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
+    if record.rate_limited:
+        return  # zie F10
     if record.fetch_errors.get("nl-representation"):
         yield _make(
             "L17",

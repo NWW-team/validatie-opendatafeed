@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 
-from .client import FeedClient, FeedError
+from .client import FeedClient, FeedError, RateLimitError
 from .config import Settings
 from .models import CountryRecord, FeedSnapshot, Report, RuleResult, Severity
 from .parsing import as_text
@@ -58,11 +58,11 @@ def fetch_snapshot(
         else:
             snapshot.emergency_info = waarde
 
-    landen = [
-        land
-        for land in snapshot.countries
-        if as_text(land.get("locationkey")) not in settings.excluded_countries
-    ]
+    # Ook uitgesloten landen worden opgehaald. Een uitsluiting betekent "dit
+    # land beoordeel ik niet", niet "dit land bestaat niet": een post in een
+    # uitgesloten land kan het adres dragen waar een ander land naar verwijst.
+    # Het filteren gebeurt in run_rules.
+    landen = snapshot.countries
     if settings.limit:
         landen = landen[: settings.limit]
 
@@ -84,6 +84,7 @@ def fetch_snapshot(
             progress("landen", gedaan, totaal)
 
     resolve_addresses(snapshot)
+    snapshot.rate_limited = client.rate_limited
     return snapshot
 
 
@@ -95,11 +96,18 @@ def _enrich(client: FeedClient, record: CountryRecord, settings: Settings) -> Co
 
     try:
         record.traveladvice = client.get_traveladvice(record.locationkey)
+    except RateLimitError as exc:
+        record.fetch_errors["traveladvice"] = str(exc)
+        record.rate_limited = True
     except FeedError as exc:
         record.fetch_errors["traveladvice"] = str(exc)
 
     try:
         index = client.get_representations(record.locationkey)
+    except RateLimitError as exc:
+        record.fetch_errors["nl-representation"] = str(exc)
+        record.rate_limited = True
+        index = []
     except FeedError as exc:
         record.fetch_errors["nl-representation"] = str(exc)
         index = []
@@ -111,6 +119,10 @@ def _enrich(client: FeedClient, record: CountryRecord, settings: Settings) -> Co
             continue
         try:
             record.representations.append(client.get_representation(record.locationkey, rep_id))
+        except RateLimitError as exc:
+            record.fetch_errors[f"nl-representation/{rep_id}"] = str(exc)
+            record.rate_limited = True
+            record.representations.append(vertegenwoordiging)
         except FeedError as exc:
             record.fetch_errors[f"nl-representation/{rep_id}"] = str(exc)
             record.representations.append(vertegenwoordiging)
