@@ -1,0 +1,42 @@
+name: Rapport publiceren
+
+# Publiceert het HTML-rapport op GitHub Pages, zodat de product owner een vaste
+# URL heeft. Zet Pages in de repo-instellingen op "GitHub Actions" voordat deze
+# workflow voor het eerst draait.
+
+on:
+  schedule:
+    - cron: "45 7 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publiceer:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Valideer de opendatafeed
+        run: |
+          feedvalidator --output-dir _site \
+            --allow-isocode BQ-BO --allow-isocode BQ-SA --allow-isocode BQ-SE \
+            --fail-on never --quiet
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
