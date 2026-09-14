@@ -302,3 +302,71 @@ def test_run_rules_legt_de_koppeling_ook_bij_een_oudere_snapshot():
     )
 
     assert [f.rule_id for f in rapport.findings] == []
+
+
+def test_de_link_naar_een_ander_land_geldt_als_adres():
+    # Ook als dat andere land helemaal niet is opgehaald: de link is er, dus
+    # het adres staat erachter.
+    bediend = maak_record(
+        locationkey="amerikaans-samoa",
+        location="Amerikaans-Samoa",
+        isocode="ASM",
+        representations=[
+            maak_vertegenwoordiging(
+                id="ambassade-wellington",
+                address=[""],
+                dataurl="https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd"
+                "/infotypes/countries/nzl/nl-representation/ambassade-wellington",
+            )
+        ],
+    )
+
+    snapshot = maak_snapshot([bediend])
+    resolve_addresses(snapshot)
+
+    assert bediend.address_elsewhere == {"ambassade-wellington": "NZL"}
+    rapport = run_rules(snapshot, Settings(thresholds=Thresholds(min_aantal_reisadviezen=1)))
+    assert [f.rule_id for f in rapport.findings] == []
+
+
+def test_de_naam_van_het_andere_land_wordt_gebruikt_als_dat_bekend_is():
+    thuis = maak_record(
+        locationkey="nieuw-zeeland", location="Nieuw-Zeeland", isocode="NZL",
+        representations=[maak_vertegenwoordiging(id="ambassade-wellington")],
+    )
+    bediend = maak_record(
+        locationkey="amerikaans-samoa", location="Amerikaans-Samoa", isocode="ASM",
+        representations=[
+            maak_vertegenwoordiging(
+                id="ambassade-wellington",
+                address=[""],
+                dataurl=".../infotypes/countries/nzl/nl-representation/ambassade-wellington",
+            )
+        ],
+    )
+
+    snapshot = maak_snapshot([thuis, bediend])
+    resolve_addresses(snapshot)
+
+    assert bediend.address_elsewhere == {"ambassade-wellington": "Nieuw-Zeeland"}
+
+
+def test_een_post_die_naar_zichzelf_verwijst_blijft_gemeld():
+    # Kaboel: de dataurl wijst naar het eigen land en er zijn geen adresregels.
+    gesloten = maak_record(
+        locationkey="afghanistan", location="Afghanistan", isocode="AFG",
+        representations=[
+            maak_vertegenwoordiging(
+                id="ambassade-kaboel",
+                address=[""],
+                dataurl=".../infotypes/countries/afg/nl-representation/ambassade-kaboel",
+            )
+        ],
+    )
+
+    snapshot = maak_snapshot([gesloten])
+    resolve_addresses(snapshot)
+
+    assert gesloten.address_elsewhere == {}
+    rapport = run_rules(snapshot, Settings(thresholds=Thresholds(min_aantal_reisadviezen=1)))
+    assert [f.rule_id for f in rapport.findings] == ["L18"]

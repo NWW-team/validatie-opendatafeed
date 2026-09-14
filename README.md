@@ -128,10 +128,14 @@ vertegenwoordiging met hetzelfde `id` als die van Nieuw-Zeeland en met een
 `dataurl` die daarheen wijst, maar zonder adresregels — het adres staat bij
 Nieuw-Zeeland.
 
-De validator legt die koppeling zelf, via het gedeelde `id`, en telt zo'n
-verwijzing dus niet als een ontbrekend adres. L18 meldt alleen een post
-waarvan het adres nergens in de feed staat. Dat zijn in de praktijk gesloten
-of opgeschorte posten.
+Die link ís het adres — het staat er alleen achter. De validator leest het
+land uit de `dataurl`: wijst die naar een ánder land dan het landrecord zelf,
+dan is het een verwijzing en telt de post als voorzien van een adres. Dat
+werkt ook als dat andere land buiten de ronde viel.
+
+L18 meldt daarom alleen een post die naar zichzelf verwijst en tóch geen
+adresregels heeft. In de peiling zijn dat er vijf: Kaboel, Tripoli,
+St. Petersburg, Khartoem en Damascus — allemaal gesloten of opgeschort.
 
 ## Over de feed
 

@@ -730,8 +730,10 @@ def check_representation_present(record: CountryRecord, settings: Settings) -> I
     "Van elke vertegenwoordiging is een adres te vinden",
     "Niet elk land heeft een eigen ambassade; zo'n land verwijst in de feed "
     "naar de post die het bedient, met hetzelfde id en een dataurl naar dat "
-    "andere land. Het adres staat dan daar, en dat telt. Deze regel meldt "
-    "alleen een post waarvan het adres nergens in de feed staat.",
+    "andere land. Het adres staat dan achter die link, en dat telt als een "
+    "adres. Deze regel meldt alleen een post die naar zichzelf verwijst en "
+    "toch geen adresregels heeft — in de praktijk een gesloten of opgeschorte "
+    "post.",
     Severity.WARNING,
 )
 def check_representation_address(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
