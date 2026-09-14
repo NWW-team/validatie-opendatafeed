@@ -41,6 +41,10 @@ def render_console(report: Report, max_findings: int = 5) -> str:
         lijnen.append(f"Buiten beschouwing gelaten: {', '.join(report.excluded)}")
         lijnen.append("")
 
+    if report.closed_posts:
+        lijnen.append(f"Als gesloten aangemerkt: {', '.join(report.closed_posts)}")
+        lijnen.append("")
+
     if report.fetch_errors:
         lijnen.append("Endpoints die niet antwoordden:")
         for naam, fout in sorted(report.fetch_errors.items()):
@@ -105,6 +109,9 @@ def render_markdown(report: Report, max_findings: int = 10) -> str:
             f"**Buiten beschouwing gelaten:** {', '.join(report.excluded)}",
             "",
         ]
+
+    if report.closed_posts:
+        regels += [f"**Als gesloten aangemerkt:** {', '.join(report.closed_posts)}", ""]
 
     if report.fetch_errors:
         regels += ["## Endpoints die niet antwoordden", ""]
@@ -204,6 +211,15 @@ def render_html(report: Report, max_findings: int = 50, theme_css: str | None = 
             '<h2 class="rhc-heading nl-heading--level-2">Buiten beschouwing gelaten</h2>'
             '<p class="nl-paragraph rhc-paragraph--rule">Deze landen zijn op verzoek niet '
             "getoetst; ze tellen niet mee in de aantallen hierboven.</p>"
+            f'<ul class="rhc-unordered-list">{items}</ul>'
+        )
+
+    if report.closed_posts:
+        items = "".join(f"<li>{_esc(naam)}</li>" for naam in report.closed_posts)
+        excluded_html += (
+            '<h2 class="rhc-heading nl-heading--level-2">Als gesloten aangemerkt</h2>'
+            '<p class="nl-paragraph rhc-paragraph--rule">Deze posten zijn gesloten of '
+            "opgeschort en hoeven daarom geen adres te hebben.</p>"
             f'<ul class="rhc-unordered-list">{items}</ul>'
         )
 

@@ -8,7 +8,7 @@ identieke uitkomsten.
 
 ## Uitkomst
 
-**0 blokkerende bevindingen, 18 waarschuwingen en 127 informatieve
+**0 blokkerende bevindingen, 13 waarschuwingen en 52 informatieve
 meldingen** over 226 getoetste landen.
 
 ## Let op: de feed knijpt af
@@ -48,8 +48,11 @@ schoonmaken van die pointer in het CMS blijft een aanbeveling.
   noodnummer zijn bij alle 253 vertegenwoordigingen leeg. Dat is geen
   redactionele omissie per post, maar een gat in de feed zelf: een afnemer kan
   deze gegevens nergens vandaan halen.
-- **Vijf posten zonder adres** (L18): Kaboel, Tripoli, St. Petersburg,
-  Khartoem en Damascus — allemaal gesloten of opgeschort. Van de 114
+- **Vijf gesloten posten zonder adres**: Kaboel, Tripoli, St. Petersburg,
+  Khartoem en Damascus. Deze posten zijn gesloten en worden door geen andere
+  post waargenomen; ze staan daarom met `--gesloten-post` als bekend gemerkt
+  en leveren geen waarschuwing meer op. Regel F12 meldt het zodra die aanname
+  niet meer klopt. Van de 114
   vertegenwoordigingen zonder eigen adresregels wijzen er 109 met hun
   `dataurl` naar een post in een ánder land; daar staat het adres, en die
   verwijzing telt dus als een adres. Alleen deze vijf verwijzen naar zichzelf.

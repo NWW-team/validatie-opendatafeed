@@ -463,3 +463,56 @@ def test_l18_legt_uit_waarom_er_geen_adres_is(settings):
     kaal = maak_vertegenwoordiging(address=[""])
     bericht = draai("L18", maak_record(representations=[kaal]), settings)[0].message
     assert "verwijst ook niet naar een post in een ander land" in bericht
+
+
+def test_l18_zwijgt_over_een_post_die_als_gesloten_is_aangemerkt():
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+    kaal = maak_vertegenwoordiging(id="ambassade-kaboel", address=[""])
+
+    assert draai("L18", maak_record(representations=[kaal]), gesloten) == []
+    assert len(draai("L18", maak_record(representations=[kaal]), Settings())) == 1
+
+
+def test_l18_meldt_een_andere_post_zonder_adres_nog_steeds():
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+    nieuw_probleem = maak_vertegenwoordiging(id="ambassade-tripoli", address=[""])
+
+    assert len(draai("L18", maak_record(representations=[nieuw_probleem]), gesloten)) == 1
+
+
+def test_f12_meldt_een_post_die_weer_een_adres_heeft():
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+    heropend = maak_vertegenwoordiging(id="ambassade-kaboel", address=["Straat 1", "Kaboel"])
+
+    bevinding = draai("F12", maak_snapshot([maak_record(representations=[heropend])]), gesloten)[0]
+
+    assert "heeft weer een adres" in bevinding.message
+    assert bevinding.detail["reden"] == "adres teruggekomen"
+
+
+def test_f12_meldt_een_post_die_wordt_waargenomen():
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+    waargenomen = maak_record(
+        representations=[maak_vertegenwoordiging(id="ambassade-kaboel", address=[""])],
+        address_elsewhere={"ambassade-kaboel": "Pakistan"},
+    )
+
+    bevinding = draai("F12", maak_snapshot([waargenomen]), gesloten)[0]
+
+    assert "waargenomen vanuit Pakistan" in bevinding.message
+
+
+def test_f12_meldt_een_post_die_uit_de_feed_verdwenen_is():
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+
+    bevinding = draai("F12", maak_snapshot(), gesloten)[0]
+
+    assert "staat niet meer in de feed" in bevinding.message
+
+
+def test_f12_zwijgt_zolang_de_post_gesloten_is(settings):
+    gesloten = Settings(closed_posts=frozenset({"ambassade-kaboel"}))
+    kaal = maak_vertegenwoordiging(id="ambassade-kaboel", address=[""])
+
+    assert draai("F12", maak_snapshot([maak_record(representations=[kaal])]), gesloten) == []
+    assert draai("F12", maak_snapshot(), settings) == []

@@ -67,6 +67,11 @@ jobs:
             --save-snapshot rapport/snapshot.json \
             --allow-isocode BQ-BO --allow-isocode BQ-SA --allow-isocode BQ-SE \
             --negeer-land vaticaanstad \
+            --gesloten-post ambassade-kaboel \
+            --gesloten-post ambassade-tripoli \
+            --gesloten-post consulaat-generaal-st-petersburg \
+            --gesloten-post ambassade-khartoem \
+            --gesloten-post ambassade-damascus \
             ${{ (inputs.check-files && '--check-files') || '' }} \
             ${{ (inputs.check-website && '--check-website') || '' }} \
             --fail-on never \

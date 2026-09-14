@@ -353,6 +353,55 @@ def check_served_elsewhere(snapshot: FeedSnapshot, settings: Settings) -> Iterat
     )
 
 
+@feed_rule(
+    "F12",
+    "Elke gesloten post is nog gesloten",
+    "Een post die als gesloten is aangemerkt hoeft geen adres te hebben. Komt "
+    "dat adres terug, of neemt een post in een ander land het over, dan is de "
+    "post niet meer gesloten en kan de vlag weg. Zo blijft de instelling "
+    "meegroeien met de werkelijkheid in plaats van een oude aanname te "
+    "verbergen.",
+    Severity.INFO,
+)
+def check_closed_posts(snapshot: FeedSnapshot, settings: Settings) -> Iterator[Finding]:
+    if not settings.closed_posts:
+        return
+    gezien: set[str] = set()
+    for record in snapshot.records:
+        for vertegenwoordiging in record.representations:
+            rep_id = as_text(vertegenwoordiging.get("id"))
+            if rep_id not in settings.closed_posts:
+                continue
+            gezien.add(rep_id)
+            naam = as_text(vertegenwoordiging.get("title")) or rep_id
+            if as_text(vertegenwoordiging.get("address")):
+                yield _make(
+                    "F12",
+                    f"Post '{naam}' heeft weer een adres; de vlag "
+                    f"--gesloten-post {rep_id} kan weg.",
+                    post=rep_id,
+                    reden="adres teruggekomen",
+                )
+            elif record.address_elsewhere.get(rep_id):
+                yield _make(
+                    "F12",
+                    f"Post '{naam}' wordt nu waargenomen vanuit "
+                    f"{record.address_elsewhere[rep_id]}; de vlag "
+                    f"--gesloten-post {rep_id} kan weg.",
+                    post=rep_id,
+                    reden="waargenomen door een andere post",
+                )
+
+    for rep_id in sorted(settings.closed_posts - gezien):
+        yield _make(
+            "F12",
+            f"Post '{rep_id}' staat niet meer in de feed; de vlag "
+            f"--gesloten-post {rep_id} kan weg.",
+            post=rep_id,
+            reden="niet meer in de feed",
+        )
+
+
 # --------------------------------------------------------------------------
 # Regels per land
 # --------------------------------------------------------------------------
@@ -784,6 +833,8 @@ def check_representation_address(record: CountryRecord, settings: Settings) -> I
             continue
         if record.address_elsewhere.get(rep_id):
             continue
+        if rep_id in settings.closed_posts:
+            continue  # bekend gesloten; F12 let op of dat zo blijft
         yield _make(
             "L18",
             f"Vertegenwoordiging '{naam}' heeft zelf geen adresregels en verwijst "

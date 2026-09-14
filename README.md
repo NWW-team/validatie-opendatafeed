@@ -27,7 +27,7 @@ reken op twee tot drie minuten.
 
 ## Wat er gecontroleerd wordt
 
-31 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
+32 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
 (`L…`). `feedvalidator regels` toont ze met uitleg; kort samengevat:
 
 | Onderwerp | Regels |
@@ -74,6 +74,7 @@ feed te belasten.
 | `--check-website` | wijzigingsdatum vergelijken met nederlandwereldwijd.nl |
 | `--allow-isocode CODE` | een landcode accepteren die van ISO 3166-1 afwijkt (herhaalbaar) |
 | `--negeer-land SLEUTEL` | een land buiten beschouwing laten, bijvoorbeeld omdat er bewust geen reisadvies van is (herhaalbaar) |
+| `--gesloten-post POST` | een post die gesloten is en daarom geen adres heeft (herhaalbaar) |
 | `--geldigheid-max-dagen N` | drempel voor "Nog steeds geldig op" (standaard 180) |
 | `--push-venster-dagen N` | hoe ver terug een wijziging "recent" heet bij het toetsen op een push (standaard 30) |
 | `--fail-on error\|warning\|never` | wanneer de exitcode 1 wordt |
@@ -146,7 +147,16 @@ werkt ook als dat andere land buiten de ronde viel.
 
 L18 meldt daarom alleen een post die naar zichzelf verwijst en tóch geen
 adresregels heeft. In de peiling zijn dat er vijf: Kaboel, Tripoli,
-St. Petersburg, Khartoem en Damascus — allemaal gesloten of opgeschort.
+St. Petersburg, Khartoem en Damascus. Die posten zijn gesloten en worden door
+geen andere post waargenomen; er valt dus niets te bezoeken en niets te
+melden. Ze staan met `--gesloten-post` als bekend gemerkt, zodat ze uit de
+waarschuwingen blijven maar wél met naam in het rapport staan.
+
+Die vlag is geen doofpot: regel **F12** kijkt of de aanname nog klopt. Krijgt
+zo'n post weer een adres, wordt hij waargenomen vanuit een ander land, of
+verdwijnt hij uit de feed, dan meldt het rapport dat de vlag weg kan. En een
+níeuwe post zonder adres blijft gewoon een waarschuwing — dat is precies
+waarom een expliciete uitzondering beter is dan de regel afzwakken.
 
 Andersom wordt het ook benoemd: regel F11 vermeldt in één informatieve regel
 hoeveel landen vanuit een post in een ander land worden bediend, zodat
