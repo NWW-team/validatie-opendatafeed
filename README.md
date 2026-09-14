@@ -83,10 +83,15 @@ reisadvies zegt niets over de wijziging die ter beoordeling ligt. Falen de
 tests of de lint, dan wordt de PR uiteraard wel rood.
 
 `.github/workflows/publiceer-rapport.yml` publiceert het HTML-rapport op GitHub
-Pages, zodat er een vaste URL is om naar te verwijzen. Zet Pages in de
-repo-instellingen onder *Settings → Pages → Source* op **GitHub Actions**
-voordat die workflow voor het eerst draait — met de instelling "Deploy from a
-branch" publiceert GitHub de README in plaats van het rapport.
+Pages, zodat er een vaste URL is om naar te verwijzen: na elke merge naar
+`main`, elke werkdag om 07:45 UTC, en handmatig via *Run workflow*.
+
+Zet Pages in de repo-instellingen onder *Settings → Pages → Source* op
+**GitHub Actions** voordat die workflow voor het eerst draait — met de
+instelling "Deploy from a branch" publiceert GitHub de README in plaats van het
+rapport. Staat het goed, dan verdwijnt de automatische run
+`pages build and deployment` uit het Actions-overzicht; zie je die na een push
+nog steeds, dan staat de bron nog op de branch.
 
 ## Over de feed
 
