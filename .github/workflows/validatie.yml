@@ -83,7 +83,27 @@ jobs:
           path: rapport/
           retention-days: 90
 
+      # Op een pull request gaat het om de code, niet om de inhoud van de feed:
+      # een bevinding over een ontbrekend reisadvies zegt niets over deze
+      # wijziging en hoort de merge dus niet tegen te houden. Bij de geplande
+      # run is diezelfde bevinding juist wél het signaal waar het om begonnen is.
+      - name: Toon de bevindingen (pull request, niet blokkerend)
+        if: github.event_name == 'pull_request'
+        run: |
+          python - <<'PY'
+          import json
+          rapport = json.load(open("rapport/rapport.json"))
+          samenvatting = rapport["summary"]
+          print(
+              f"fouten={samenvatting['errors']} "
+              f"waarschuwingen={samenvatting['warnings']} "
+              f"landen={rapport['countries_checked']}"
+          )
+          print("Bevindingen over de feed blokkeren een pull request niet.")
+          PY
+
       - name: Laat de run falen bij blokkerende bevindingen
+        if: github.event_name != 'pull_request'
         run: |
           python - <<'PY'
           import json, sys

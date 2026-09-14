@@ -77,10 +77,16 @@ rapport blijft 90 dagen als artefact beschikbaar, en de run faalt bij
 blokkerende bevindingen. De workflow is ook handmatig te starten, met
 `--check-files` en `--check-website` als aan te vinken opties.
 
+Op een pull request draait dezelfde validatie, maar houden bevindingen over de
+feed de merge niet tegen: daar gaat het om de code, en een ontbrekend
+reisadvies zegt niets over de wijziging die ter beoordeling ligt. Falen de
+tests of de lint, dan wordt de PR uiteraard wel rood.
+
 `.github/workflows/publiceer-rapport.yml` publiceert het HTML-rapport op GitHub
 Pages, zodat er een vaste URL is om naar te verwijzen. Zet Pages in de
-repo-instellingen op "GitHub Actions" voordat die workflow voor het eerst
-draait.
+repo-instellingen onder *Settings → Pages → Source* op **GitHub Actions**
+voordat die workflow voor het eerst draait — met de instelling "Deploy from a
+branch" publiceert GitHub de README in plaats van het rapport.
 
 ## Over de feed
 
