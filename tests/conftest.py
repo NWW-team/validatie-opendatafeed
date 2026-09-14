@@ -53,6 +53,8 @@ def maak_reisadvies(**overrides: Any) -> dict[str, Any]:
             }
         ],
         "lastmodified": iso_datum(10),
+        "issued": iso_datum(10),
+        "available": iso_datum(2000),
         "language": "nl",
     }
     advies.update(overrides)
@@ -78,10 +80,21 @@ def maak_record(**overrides: Any) -> CountryRecord:
         "locationkey": "spanje",
         "location": "Spanje",
         "isocode": "ESP",
-        "traveladvice": maak_reisadvies(),
         "representations": [maak_vertegenwoordiging()],
     }
     velden.update(overrides)
+    # Het reisadvies hoort bij hetzelfde land als het record, anders slaat een
+    # test onbedoeld aan op de consistentieregels.
+    velden.setdefault(
+        "traveladvice",
+        maak_reisadvies(
+            id=velden["isocode"],
+            location=velden["location"],
+            locationkey=velden["locationkey"],
+            isocode=velden["isocode"],
+            canonical=f"https://www.nederlandwereldwijd.nl/reisadvies/{velden['locationkey']}",
+        ),
+    )
     # Het landrecord uit /infotypes/countries hoort bij het land te passen,
     # anders toetsen de feedregels iets anders dan de landregels.
     velden.setdefault(

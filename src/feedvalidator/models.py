@@ -57,6 +57,9 @@ class CountryRecord:
     representations: list[dict[str, Any]] = field(default_factory=list)
     #: Uitkomst van het opvragen van de kaartbestanden (--check-files).
     map_checks: list[dict[str, Any]] = field(default_factory=list)
+    #: Vertegenwoordigingen die hun adres niet zelf dragen maar verwijzen naar
+    #: een post in een ander land: id -> het land waar het adres wél staat.
+    address_elsewhere: dict[str, str] = field(default_factory=dict)
     #: Wat de publiekssite toont, als --check-website aanstaat.
     website: dict[str, Any] | None = None
     #: Ophaalfouten per endpoint, zodat een regel niet over None struikelt.

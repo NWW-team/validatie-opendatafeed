@@ -83,6 +83,7 @@ def fetch_snapshot(
             gedaan += 1
             progress("landen", gedaan, totaal)
 
+    resolve_addresses(snapshot)
     return snapshot
 
 
@@ -154,8 +155,38 @@ def _probe_maps(client: FeedClient, traveladvice: dict[str, Any]) -> list[dict[s
     return probes
 
 
+def resolve_addresses(snapshot: FeedSnapshot) -> None:
+    """Zoek op welke vertegenwoordigingen hun adres bij een andere post hebben.
+
+    Niet elk land heeft een eigen ambassade. Zo'n land krijgt in de feed een
+    verwijzing naar de post die het bedient — hetzelfde ``id``, met een
+    ``dataurl`` die naar het andere land wijst, maar zonder adresregels. Het
+    adres staat dan bij dat andere land. Deze functie legt die koppeling, zodat
+    een verwijzing niet als een ontbrekend adres wordt geteld.
+    """
+    met_adres: dict[str, str] = {}
+    for record in snapshot.records:
+        for vertegenwoordiging in record.representations:
+            rep_id = as_text(vertegenwoordiging.get("id"))
+            if rep_id and as_text(vertegenwoordiging.get("address")):
+                met_adres.setdefault(rep_id, record.location or record.locationkey)
+
+    for record in snapshot.records:
+        elders = {}
+        for vertegenwoordiging in record.representations:
+            rep_id = as_text(vertegenwoordiging.get("id"))
+            if not rep_id or as_text(vertegenwoordiging.get("address")):
+                continue
+            bron = met_adres.get(rep_id)
+            if bron and bron != (record.location or record.locationkey):
+                elders[rep_id] = bron
+        record.address_elsewhere = elders
+
+
 def run_rules(snapshot: FeedSnapshot, settings: Settings, duration: float = 0.0) -> Report:
     """Draai alle actieve regels over een snapshot."""
+    # Ook bij --from-snapshot, zodat een oudere peiling dezelfde uitkomst geeft.
+    resolve_addresses(snapshot)
     feed_rules, country_rules = active_rules(settings)
     records = [r for r in snapshot.records if r.locationkey not in settings.excluded_countries]
     results: list[RuleResult] = []

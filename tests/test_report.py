@@ -29,7 +29,7 @@ def schoon_rapport():
 
 def test_console_noemt_de_aantallen_en_de_eerste_bevindingen():
     tekst = render_console(rapport_met_bevinding())
-    assert "Fouten: 2" in tekst  # onbekende ISO-code (L02) én verschil met het advies (L03)
+    assert "Fouten: 1" in tekst  # de onbekende ISO-code (L02)
     assert "L02" in tekst
     assert "ISO-code 'ZZZ'" in tekst
     assert "blokkerende bevindingen" in tekst
@@ -49,7 +49,7 @@ def test_json_bevat_de_samenvatting_en_alle_regels(tmp_path):
     pad = write_json(rapport_met_bevinding(), tmp_path / "rapport.json")
     data = json.loads(pad.read_text(encoding="utf-8"))
 
-    assert data["summary"]["errors"] == 2
+    assert data["summary"]["errors"] == 1
     assert data["summary"]["healthy"] is False
     assert {r["rule_id"] for r in data["results"]} >= {"F01", "L02", "L17"}
     iso = [r for r in data["results"] if r["rule_id"] == "L02"][0]

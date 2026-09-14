@@ -7,7 +7,13 @@ from feedvalidator.client import FeedError
 from feedvalidator.config import Settings, Thresholds
 from feedvalidator.models import Severity
 from feedvalidator.snapshot import load_snapshot, save_snapshot
-from feedvalidator.validate import _probe_maps, exit_code, fetch_snapshot, run_rules
+from feedvalidator.validate import (
+    _probe_maps,
+    exit_code,
+    fetch_snapshot,
+    resolve_addresses,
+    run_rules,
+)
 
 
 class NepClient:
@@ -210,5 +216,63 @@ def test_f03_zwijgt_over_een_uitgesloten_land():
     )
 
     rapport = run_rules(zonder_advies, settings)
+
+    assert [f.rule_id for f in rapport.findings] == []
+
+
+def test_adres_van_een_post_in_een_ander_land_wordt_gevonden():
+    # Dezelfde post onder twee landen: alleen het thuisland draagt het adres.
+    thuis = maak_record(
+        locationkey="nieuw-zeeland",
+        location="Nieuw-Zeeland",
+        isocode="NZL",
+        representations=[maak_vertegenwoordiging(id="ambassade-wellington")],
+    )
+    bediend = maak_record(
+        locationkey="amerikaans-samoa",
+        location="Amerikaans-Samoa",
+        isocode="ASM",
+        representations=[maak_vertegenwoordiging(id="ambassade-wellington", address=[""])],
+    )
+
+    snapshot = maak_snapshot([thuis, bediend])
+    resolve_addresses(snapshot)
+
+    assert bediend.address_elsewhere == {"ambassade-wellington": "Nieuw-Zeeland"}
+    assert thuis.address_elsewhere == {}
+
+
+def test_een_post_zonder_adres_waar_dan_ook_blijft_gemeld():
+    gesloten = maak_record(
+        representations=[maak_vertegenwoordiging(id="ambassade-kaboel", address=[""])]
+    )
+    snapshot = maak_snapshot([gesloten])
+
+    resolve_addresses(snapshot)
+
+    assert gesloten.address_elsewhere == {}
+    rapport = run_rules(snapshot, Settings(thresholds=Thresholds(min_aantal_reisadviezen=1)))
+    assert [f.rule_id for f in rapport.findings] == ["L18"]
+
+
+def test_run_rules_legt_de_koppeling_ook_bij_een_oudere_snapshot():
+    # Een snapshot van vóór deze functie draagt het veld nog niet.
+    thuis = maak_record(
+        locationkey="nieuw-zeeland",
+        location="Nieuw-Zeeland",
+        isocode="NZL",
+        representations=[maak_vertegenwoordiging(id="ambassade-wellington")],
+    )
+    bediend = maak_record(
+        locationkey="amerikaans-samoa",
+        location="Amerikaans-Samoa",
+        isocode="ASM",
+        representations=[maak_vertegenwoordiging(id="ambassade-wellington", address=[""])],
+    )
+
+    rapport = run_rules(
+        maak_snapshot([thuis, bediend]),
+        Settings(thresholds=Thresholds(min_aantal_reisadviezen=1)),
+    )
 
     assert [f.rule_id for f in rapport.findings] == []

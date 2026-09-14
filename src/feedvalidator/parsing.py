@@ -6,11 +6,18 @@ import html
 import re
 from datetime import UTC, date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 #: "Laatst gewijzigd op: 05-08-2026 | Nog steeds geldig op: 14-09-2026"
 _GEWIJZIGD_RE = re.compile(r"laatst gewijzigd op:\s*(\d{1,2}-\d{1,2}-\d{4})", re.IGNORECASE)
 _GELDIG_RE = re.compile(r"nog steeds geldig op:\s*(\d{1,2}-\d{1,2}-\d{4})", re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
+
+#: De feed levert timestamps in UTC, maar de datums die de redactie en de
+#: website tonen zijn Nederlandse kalenderdagen. Een push op 6 januari om 00:30
+#: Nederlandse tijd staat in de feed als 5 januari 23:30 UTC; zonder omrekenen
+#: zou de validator dus de verkeerde dag vergelijken.
+NL_TIJDZONE = ZoneInfo("Europe/Amsterdam")
 
 
 def parse_nl_date(value: str | None) -> date | None:
@@ -51,6 +58,11 @@ def validity_date(modificationdate: str | None) -> date | None:
         return None
     match = _GELDIG_RE.search(modificationdate)
     return parse_nl_date(match.group(1)) if match else None
+
+
+def local_date(moment: datetime | None) -> date | None:
+    """De Nederlandse kalenderdag waarop een UTC-timestamp valt."""
+    return moment.astimezone(NL_TIJDZONE).date() if moment else None
 
 
 def strip_html(value: str | None) -> str:
