@@ -26,7 +26,7 @@ minuut.
 
 ## Wat er gecontroleerd wordt
 
-24 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
+25 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
 (`L…`). `feedvalidator regels` toont ze met uitleg; kort samengevat:
 
 | Onderwerp | Regels |
@@ -53,7 +53,8 @@ Elke ronde schrijft drie bestanden in `--output-dir` (standaard `rapport/`):
 
 Landen die met `--negeer-land` zijn uitgesloten, worden niet getoetst en tellen
 niet mee in de aantallen, maar staan wél met naam in het rapport — zo raakt
-niemand ze stilletjes kwijt.
+niemand ze stilletjes kwijt. Verdwijnt zo'n land later uit de feed, dan meldt
+regel F08 dat de vlag weg kan, zodat de instelling meegroeit met de feed.
 
 Met `--save-snapshot pad.json` bewaar je de ruwe feed van dat moment. Met
 `--from-snapshot pad.json` draai je de regels daar later opnieuw overheen —
