@@ -55,6 +55,15 @@ def _add_validate_arguments(parser: argparse.ArgumentParser) -> None:
         "(herhaalbaar, bijvoorbeeld --allow-isocode BQ-BO)",
     )
 
+    feed.add_argument(
+        "--negeer-land",
+        action="append",
+        default=[],
+        metavar="LANDSLEUTEL",
+        help="land dat buiten beschouwing blijft, bijvoorbeeld omdat er bewust geen "
+        "reisadvies van is (herhaalbaar, bijvoorbeeld --negeer-land vaticaanstad)",
+    )
+
     extra = parser.add_argument_group("extra controles")
     extra.add_argument(
         "--check-files", action="store_true", help="kaartbestanden daadwerkelijk ophalen"
@@ -114,6 +123,7 @@ def _settings_from_args(args: argparse.Namespace) -> Settings:
         check_website=args.check_website,
         limit=args.limit,
         extra_isocodes=frozenset(args.allow_isocode),
+        excluded_countries=frozenset(args.negeer_land),
         thresholds=Thresholds(
             geldigheid_max_dagen=args.geldigheid_max_dagen,
             wijziging_max_dagen=args.wijziging_max_dagen,

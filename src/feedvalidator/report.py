@@ -37,6 +37,10 @@ def render_console(report: Report, max_findings: int = 5) -> str:
     )
     lijnen.append("")
 
+    if report.excluded:
+        lijnen.append(f"Buiten beschouwing gelaten: {', '.join(report.excluded)}")
+        lijnen.append("")
+
     if report.fetch_errors:
         lijnen.append("Endpoints die niet antwoordden:")
         for naam, fout in sorted(report.fetch_errors.items()):
@@ -95,6 +99,12 @@ def render_markdown(report: Report, max_findings: int = 10) -> str:
         f"{report.rules_failed}/{len(report.results)} |",
         "",
     ]
+
+    if report.excluded:
+        regels += [
+            f"**Buiten beschouwing gelaten:** {', '.join(report.excluded)}",
+            "",
+        ]
 
     if report.fetch_errors:
         regels += ["## Endpoints die niet antwoordden", ""]
@@ -187,6 +197,16 @@ def render_html(report: Report, max_findings: int = 50, theme_css: str | None = 
         "alle harde regels."
     )
 
+    excluded_html = ""
+    if report.excluded:
+        items = "".join(f"<li>{_esc(naam)}</li>" for naam in report.excluded)
+        excluded_html = (
+            '<h2 class="rhc-heading nl-heading--level-2">Buiten beschouwing gelaten</h2>'
+            '<p class="nl-paragraph rhc-paragraph--rule">Deze landen zijn op verzoek niet '
+            "getoetst; ze tellen niet mee in de aantallen hierboven.</p>"
+            f'<ul class="rhc-unordered-list">{items}</ul>'
+        )
+
     fetch_html = ""
     if report.fetch_errors:
         items = "".join(
@@ -266,6 +286,8 @@ def render_html(report: Report, max_findings: int = 50, theme_css: str | None = 
     </div>
 
     {fetch_html}
+
+    {excluded_html}
 
     <h2 class="rhc-heading nl-heading--level-2">Resultaat per regel</h2>
     <div class="rhc-table-wrapper">

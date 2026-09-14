@@ -58,7 +58,11 @@ def fetch_snapshot(
         else:
             snapshot.emergency_info = waarde
 
-    landen = snapshot.countries
+    landen = [
+        land
+        for land in snapshot.countries
+        if as_text(land.get("locationkey")) not in settings.excluded_countries
+    ]
     if settings.limit:
         landen = landen[: settings.limit]
 
@@ -153,6 +157,7 @@ def _probe_maps(client: FeedClient, traveladvice: dict[str, Any]) -> list[dict[s
 def run_rules(snapshot: FeedSnapshot, settings: Settings, duration: float = 0.0) -> Report:
     """Draai alle actieve regels over een snapshot."""
     feed_rules, country_rules = active_rules(settings)
+    records = [r for r in snapshot.records if r.locationkey not in settings.excluded_countries]
     results: list[RuleResult] = []
 
     for rule in feed_rules:
@@ -170,7 +175,7 @@ def run_rules(snapshot: FeedSnapshot, settings: Settings, duration: float = 0.0)
 
     for rule in country_rules:
         findings = []
-        for record in snapshot.records:
+        for record in records:
             findings.extend(rule.check(record, settings))
         results.append(
             RuleResult(
@@ -178,7 +183,7 @@ def run_rules(snapshot: FeedSnapshot, settings: Settings, duration: float = 0.0)
                 title=rule.title,
                 description=rule.description,
                 severity=rule.severity,
-                checked=len(snapshot.records),
+                checked=len(records),
                 findings=findings,
             )
         )
@@ -188,9 +193,10 @@ def run_rules(snapshot: FeedSnapshot, settings: Settings, duration: float = 0.0)
         generated_at=snapshot.fetched_at,
         base_url=snapshot.base_url,
         duration_seconds=duration,
-        countries_checked=len(snapshot.records),
+        countries_checked=len(records),
         results=results,
         fetch_errors=dict(snapshot.fetch_errors),
+        excluded=_excluded_labels(snapshot, settings),
     )
 
 
@@ -203,6 +209,18 @@ def validate(
     snapshot = fetch_snapshot(client, settings, progress)
     report = run_rules(snapshot, settings, duration=time.monotonic() - start)
     return report, snapshot
+
+
+def _excluded_labels(snapshot: FeedSnapshot, settings: Settings) -> list[str]:
+    """De uitgesloten landen met hun naam, zodat het rapport ze kan noemen."""
+    namen = {
+        as_text(land.get("locationkey")): as_text(land.get("location"))
+        for land in snapshot.countries
+    }
+    return sorted(
+        f"{namen[key]} ({key})" if namen.get(key) else key
+        for key in settings.excluded_countries
+    )
 
 
 def exit_code(report: Report, fail_on: str) -> int:

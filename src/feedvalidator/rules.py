@@ -145,6 +145,8 @@ def check_coverage(snapshot: FeedSnapshot, settings: Settings) -> Iterator[Findi
     met_advies = {as_text(item.get("locationkey")) for item in snapshot.traveladvice_index}
     for country in snapshot.countries:
         key = as_text(country.get("locationkey"))
+        if key in settings.excluded_countries:
+            continue
         if key and key not in met_advies:
             yield _make(
                 "F03",
@@ -166,6 +168,8 @@ def check_orphan_advice(snapshot: FeedSnapshot, settings: Settings) -> Iterator[
     landen = {as_text(item.get("locationkey")) for item in snapshot.countries}
     for advice in snapshot.traveladvice_index:
         key = as_text(advice.get("locationkey"))
+        if key in settings.excluded_countries:
+            continue
         if key and key not in landen:
             yield _make(
                 "F04",
