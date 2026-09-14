@@ -8,6 +8,7 @@ heeft.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -19,6 +20,7 @@ from .isocodes import is_known_alpha3
 from .models import CountryRecord, FeedSnapshot, Finding, Severity
 from .parsing import (
     as_text,
+    local_date,
     modification_date,
     parse_iso_datetime,
     strip_html,
@@ -270,6 +272,38 @@ def check_stale_exclusions(snapshot: FeedSnapshot, settings: Settings) -> Iterat
             )
 
 
+@feed_rule(
+    "F09",
+    "Pushdatums zijn over de tijd verdeeld",
+    "Delen veel adviezen één pushmoment, dan komt dat van een bulkactie en is "
+    "er sindsdien voor die landen geen notificatie meer uitgegaan. Informatief: "
+    "het zegt iets over hoe de feed gevuld is, niet dat er iets stuk is.",
+    Severity.INFO,
+)
+def check_issued_spread(snapshot: FeedSnapshot, settings: Settings) -> Iterator[Finding]:
+    gepusht = [
+        parse_iso_datetime(as_text(r.traveladvice.get("issued")))
+        for r in snapshot.records
+        if r.traveladvice
+    ]
+    momenten = [m for m in gepusht if m]
+    if len(momenten) < 10:
+        return
+    grootste = Counter(m.isoformat() for m in momenten).most_common(1)[0]
+    moment, aantal = grootste
+    if aantal * 2 <= len(momenten):
+        return
+    dag = local_date(parse_iso_datetime(moment))
+    yield _make(
+        "F09",
+        f"{aantal} van de {len(momenten)} reisadviezen zijn voor het laatst gepusht op "
+        f"{dag:%d-%m-%Y}; dat wijst op één bulkactie.",
+        moment=moment,
+        aantal=aantal,
+        totaal=len(momenten),
+    )
+
+
 # --------------------------------------------------------------------------
 # Regels per land
 # --------------------------------------------------------------------------
@@ -510,9 +544,12 @@ def check_modification_date(record: CountryRecord, settings: Settings) -> Iterat
 @country_rule(
     "L12",
     "De technische en de getoonde wijzigingsdatum komen overeen",
-    "Het veld lastmodified stuurt caches aan, de tekst stuurt de gebruiker aan; "
-    "lopen ze uiteen, dan ziet een afnemer een andere datum dan de website.",
-    Severity.WARNING,
+    "Het veld lastmodified stuurt caches aan, de getoonde datum stuurt de "
+    "gebruiker aan. Ze mogen uiteenlopen — lastmodified verspringt ook bij een "
+    "typefout, de getoonde datum alleen bij een inhoudelijke wijziging — maar "
+    "een afnemer die op lastmodified sorteert of cachet, toont dan een andere "
+    "datum dan de website. Signaal, geen defect.",
+    Severity.INFO,
 )
 def check_modification_consistency(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
     if record.traveladvice is None:
@@ -714,6 +751,110 @@ def check_website_match(record: CountryRecord, settings: Settings) -> Iterator[F
             website=site_datum,
             url=website.get("url"),
         )
+
+    feed_push = local_date(parse_iso_datetime(as_text(record.traveladvice.get("issued"))))
+    site_push = parse_iso_datetime(as_text(website.get("issued_raw")))
+    if feed_push and site_push and feed_push != site_push.date():
+        yield _make(
+            "L19",
+            f"De feed noemt {feed_push:%d-%m-%Y} als pushdatum, de website "
+            f"{site_push.date():%d-%m-%Y}.",
+            record,
+            feed_issued=feed_push.isoformat(),
+            website_issued=site_push.date().isoformat(),
+            url=website.get("url"),
+        )
+
+
+@country_rule(
+    "L20",
+    "Het reisadvies heeft een leesbare pushdatum",
+    "Het veld issued is het moment waarop een advies actief is gepusht. De "
+    "Reisapp leidt er een notificatie uit af en de informatieservice een "
+    "bericht; ontbreekt het of is het onleesbaar, dan blijft die melding uit.",
+    Severity.ERROR,
+)
+def check_issued_present(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
+    if record.traveladvice is None:
+        return
+    ruw = as_text(record.traveladvice.get("issued"))
+    if not ruw:
+        yield _make("L20", "Het reisadvies heeft geen pushdatum (issued).", record)
+    elif parse_iso_datetime(ruw) is None:
+        yield _make("L20", f"De pushdatum is geen geldige timestamp: '{ruw}'.", record, waarde=ruw)
+
+
+@country_rule(
+    "L21",
+    "De pushdatum ligt niet in de toekomst",
+    "Een pushdatum die nog moet komen betekent dat afnemers de melding nog "
+    "niet hebben gekregen, terwijl het advies al wel in de feed staat.",
+    Severity.ERROR,
+)
+def check_issued_not_future(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
+    if record.traveladvice is None:
+        return
+    gepusht = parse_iso_datetime(as_text(record.traveladvice.get("issued")))
+    if gepusht and gepusht > datetime.now(UTC):
+        yield _make(
+            "L21",
+            f"De pushdatum staat op {gepusht:%d-%m-%Y %H:%M} UTC, in de toekomst.",
+            record,
+            issued=gepusht.isoformat(),
+        )
+
+
+@country_rule(
+    "L22",
+    "De pushdatum ligt niet vóór de eerste publicatie",
+    "Een advies kan niet gepusht zijn voordat het bestond; wijkt dat af, dan "
+    "klopt een van beide datums niet.",
+    Severity.WARNING,
+)
+def check_issued_after_available(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
+    if record.traveladvice is None:
+        return
+    gepusht = parse_iso_datetime(as_text(record.traveladvice.get("issued")))
+    beschikbaar = parse_iso_datetime(as_text(record.traveladvice.get("available")))
+    if gepusht and beschikbaar and gepusht < beschikbaar:
+        yield _make(
+            "L22",
+            f"De pushdatum ({gepusht:%d-%m-%Y}) ligt vóór de eerste publicatie "
+            f"({beschikbaar:%d-%m-%Y}).",
+            record,
+            issued=gepusht.isoformat(),
+            available=beschikbaar.isoformat(),
+        )
+
+
+@country_rule(
+    "L23",
+    "Een recente wijziging is ook gepusht",
+    "Staat de getoonde wijzigingsdatum ná de laatste push, dan hebben de "
+    "Reisapp en de informatieservice geen melding gedaan van die wijziging. "
+    "Dat kan een bewuste keuze zijn bij een kleine correctie; bij een inhoudelijke "
+    "wijziging is het een gemiste notificatie.",
+    Severity.INFO,
+)
+def check_change_was_pushed(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
+    if record.traveladvice is None:
+        return
+    gewijzigd = modification_date(as_text(record.traveladvice.get("modificationdate")))
+    gepusht = local_date(parse_iso_datetime(as_text(record.traveladvice.get("issued"))))
+    if not gewijzigd or not gepusht:
+        return
+    venster = settings.thresholds.push_venster_dagen
+    if (_today() - gewijzigd).days > venster or gewijzigd <= gepusht:
+        return
+    yield _make(
+        "L23",
+        f"Gewijzigd op {gewijzigd:%d-%m-%Y}, maar de laatste push was "
+        f"{gepusht:%d-%m-%Y} ({(gewijzigd - gepusht).days} dagen eerder).",
+        record,
+        gewijzigd=gewijzigd.isoformat(),
+        gepusht=gepusht.isoformat(),
+        venster_dagen=venster,
+    )
 
 
 def _map_files(traveladvice: dict[str, Any]) -> list[dict[str, Any]]:

@@ -14,6 +14,7 @@ from conftest import (
 )
 from feedvalidator.config import Settings, Thresholds
 from feedvalidator.models import Severity
+from feedvalidator.parsing import as_text, modification_date
 from feedvalidator.rules import COUNTRY_RULES, FEED_RULES, rule_by_id
 from feedvalidator.validate import run_rules
 
@@ -280,3 +281,99 @@ def test_f08_zwijgt_zolang_het_land_nog_in_de_feed_staat():
 
 def test_f08_zwijgt_zonder_uitsluitingen(settings):
     assert draai("F08", maak_snapshot(), settings) == []
+
+
+# -- pushdatum (het veld issued) -------------------------------------------
+
+
+def test_l20_meldt_een_ontbrekende_of_onleesbare_pushdatum(settings):
+    zonder = maak_record(traveladvice=maak_reisadvies(issued=""))
+    assert "geen pushdatum" in draai("L20", zonder, settings)[0].message
+    rommel = maak_record(traveladvice=maak_reisadvies(issued="vorige week"))
+    assert "geen geldige timestamp" in draai("L20", rommel, settings)[0].message
+
+
+def test_l21_meldt_een_pushdatum_in_de_toekomst(settings):
+    vooruit = maak_record(traveladvice=maak_reisadvies(issued=iso_datum(-3)))
+    assert "in de toekomst" in draai("L21", vooruit, settings)[0].message
+    assert draai("L21", maak_record(), settings) == []
+
+
+def test_l22_meldt_een_push_van_voor_de_eerste_publicatie(settings):
+    omgedraaid = maak_record(
+        traveladvice=maak_reisadvies(issued=iso_datum(500), available=iso_datum(100))
+    )
+    assert "vóór de eerste publicatie" in draai("L22", omgedraaid, settings)[0].message
+    assert draai("L22", maak_record(), settings) == []
+
+
+def test_l23_meldt_een_recente_wijziging_die_niet_gepusht_is(settings):
+    # Vijf dagen geleden gewijzigd, maar de laatste push was een jaar eerder.
+    record = maak_record(
+        traveladvice=maak_reisadvies(
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            issued=iso_datum(370),
+        )
+    )
+    bevinding = draai("L23", record, settings)[0]
+    assert "de laatste push was" in bevinding.message
+    assert bevinding.detail["venster_dagen"] == 30
+
+
+def test_l23_zwijgt_over_een_oude_wijziging_buiten_het_venster(settings):
+    # Buiten het venster: dit is de normale toestand van een stabiel advies.
+    record = maak_record(
+        traveladvice=maak_reisadvies(
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(200)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            issued=iso_datum(370),
+        )
+    )
+    assert draai("L23", record, settings) == []
+
+
+def test_l23_zwijgt_als_de_push_na_de_wijziging_kwam(settings):
+    record = maak_record(
+        traveladvice=maak_reisadvies(
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            issued=iso_datum(4),
+        )
+    )
+    assert draai("L23", record, settings) == []
+
+
+def test_f09_meldt_een_bulkpush(settings):
+    # Eén en dezelfde timestamp: zo ziet een bulkactie eruit in de feed.
+    bulkmoment = "2023-08-07T20:26:00.000Z"
+    bulk = [maak_record(traveladvice=maak_reisadvies(issued=bulkmoment)) for _ in range(9)]
+    verspreid = [maak_record(traveladvice=maak_reisadvies(issued=iso_datum(n))) for n in range(5)]
+
+    bevinding = draai("F09", maak_snapshot(bulk + verspreid), settings)[0]
+
+    assert "bulkactie" in bevinding.message
+    assert bevinding.detail["aantal"] == 9
+
+
+def test_f09_zwijgt_bij_verspreide_pushdatums(settings):
+    verspreid = [maak_record(traveladvice=maak_reisadvies(issued=iso_datum(n))) for n in range(14)]
+    assert draai("F09", maak_snapshot(verspreid), settings) == []
+
+
+def test_l19_vergelijkt_ook_de_pushdatum():
+    aan = Settings(check_website=True)
+    record = maak_record(
+        traveladvice=maak_reisadvies(issued="2026-08-05T21:13:00.000Z"),
+        website={
+            "url": "https://site/spanje",
+            "modification_date": modification_date(
+                as_text(maak_reisadvies()["modificationdate"])
+            ).isoformat(),
+            "issued_raw": "2026-07-01T10:00",
+        },
+    )
+
+    boodschappen = [b.message for b in draai("L19", record, aan)]
+
+    assert any("pushdatum" in m for m in boodschappen)

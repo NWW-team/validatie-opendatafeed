@@ -53,6 +53,8 @@ def maak_reisadvies(**overrides: Any) -> dict[str, Any]:
             }
         ],
         "lastmodified": iso_datum(10),
+        "issued": iso_datum(10),
+        "available": iso_datum(2000),
         "language": "nl",
     }
     advies.update(overrides)

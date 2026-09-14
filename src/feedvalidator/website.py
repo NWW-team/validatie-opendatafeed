@@ -17,6 +17,11 @@ from .parsing import parse_nl_date
 
 _GEWIJZIGD_RE = re.compile(r"Laatst gewijzigd op:\s*(\d{1,2}-\d{1,2}-\d{4})", re.IGNORECASE)
 _GELDIG_RE = re.compile(r"Nog steeds geldig op:\s*(\d{1,2}-\d{1,2}-\d{4})", re.IGNORECASE)
+#: <meta name="DCTERMS.issued" content="2026-08-05T23:13"/> — de pushdatum
+#: zoals de website hem publiceert, in Nederlandse tijd.
+_ISSUED_RE = re.compile(
+    r'name="DCTERMS\.issued"[^>]*content="([^"]+)"', re.IGNORECASE
+)
 
 
 def fetch_website_dates(
@@ -44,6 +49,9 @@ def fetch_website_dates(
     if geldig:
         parsed = parse_nl_date(geldig.group(1))
         result["validity_date"] = parsed.isoformat() if parsed else None
+    gepusht = _ISSUED_RE.search(html)
+    if gepusht:
+        result["issued_raw"] = gepusht.group(1)
     if "modification_date" not in result:
         result["error"] = "Geen wijzigingsdatum op de pagina gevonden"
     return result
