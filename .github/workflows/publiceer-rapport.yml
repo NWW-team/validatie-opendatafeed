@@ -5,6 +5,10 @@ name: Rapport publiceren
 # workflow voor het eerst draait.
 
 on:
+  # Na elke merge naar main, zodat de gepubliceerde pagina meteen bij de code
+  # past en niemand een knop hoeft te zoeken.
+  push:
+    branches: [main]
   schedule:
     - cron: "45 7 * * 1-5"
   workflow_dispatch:
@@ -14,9 +18,11 @@ permissions:
   pages: write
   id-token: write
 
+# Eén publicatie tegelijk, maar een lopende deploy nooit afbreken: die zet de
+# live pagina neer en moet af kunnen maken.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   publiceer:
