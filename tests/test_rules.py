@@ -240,15 +240,30 @@ def test_l17_meldt_een_land_zonder_vertegenwoordiging(settings):
     assert "niet op te halen" in draai("L17", stuk, settings)[0].message
 
 
-def test_l18_meldt_een_ambassade_zonder_adres(settings):
+def test_l18_meldt_een_post_waarvan_het_adres_nergens_staat(settings):
     kaal = maak_vertegenwoordiging(address=[""])
     bevinding = draai("L18", maak_record(representations=[kaal]), settings)[0]
-    assert "geen adres" in bevinding.message
+    assert "nergens in de feed een adres" in bevinding.message
 
 
 def test_l18_laat_een_ambassade_met_adres_met_rust(settings):
     zonder_mail = maak_vertegenwoordiging(emailaddress="")
     assert draai("L18", maak_record(representations=[zonder_mail]), settings) == []
+
+
+def test_l18_accepteert_een_verwijzing_naar_een_post_in_een_ander_land(settings):
+    # Amerikaans-Samoa wordt bediend door de ambassade in Wellington: hetzelfde
+    # id, geen eigen adresregels, adres staat bij Nieuw-Zeeland.
+    verwijzing = maak_vertegenwoordiging(id="ambassade-wellington", address=[""])
+    bediend = maak_record(
+        locationkey="amerikaans-samoa",
+        location="Amerikaans-Samoa",
+        isocode="ASM",
+        representations=[verwijzing],
+        address_elsewhere={"ambassade-wellington": "Nieuw-Zeeland"},
+    )
+
+    assert draai("L18", bediend, settings) == []
 
 
 def test_l19_vergelijkt_met_de_website():

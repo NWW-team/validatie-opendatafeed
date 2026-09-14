@@ -700,21 +700,27 @@ def check_representation_present(record: CountryRecord, settings: Settings) -> I
 
 @country_rule(
     "L18",
-    "Vertegenwoordigingen hebben een adres",
-    "Een ambassade of consulaat zonder adres is voor een reiziger niet te "
-    "vinden; het adres is het enige contactveld dat de feed per post vult.",
+    "Van elke vertegenwoordiging is een adres te vinden",
+    "Niet elk land heeft een eigen ambassade; zo'n land verwijst in de feed "
+    "naar de post die het bedient, met hetzelfde id en een dataurl naar dat "
+    "andere land. Het adres staat dan daar, en dat telt. Deze regel meldt "
+    "alleen een post waarvan het adres nergens in de feed staat.",
     Severity.WARNING,
 )
 def check_representation_address(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
     for vertegenwoordiging in record.representations:
-        naam = as_text(vertegenwoordiging.get("title")) or as_text(vertegenwoordiging.get("id"))
-        if not as_text(vertegenwoordiging.get("address")):
-            yield _make(
-                "L18",
-                f"Vertegenwoordiging '{naam}' heeft geen adres.",
-                record,
-                vertegenwoordiging=naam,
-            )
+        rep_id = as_text(vertegenwoordiging.get("id"))
+        naam = as_text(vertegenwoordiging.get("title")) or rep_id
+        if as_text(vertegenwoordiging.get("address")):
+            continue
+        if record.address_elsewhere.get(rep_id):
+            continue
+        yield _make(
+            "L18",
+            f"Vertegenwoordiging '{naam}' heeft nergens in de feed een adres.",
+            record,
+            vertegenwoordiging=naam,
+        )
 
 
 @country_rule(

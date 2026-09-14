@@ -8,7 +8,7 @@ identieke uitkomsten.
 
 ## Uitkomst
 
-**0 blokkerende bevindingen, 127 waarschuwingen en 127 informatieve
+**0 blokkerende bevindingen, 18 waarschuwingen en 127 informatieve
 meldingen** over 226 getoetste landen.
 
 ## Vaticaanstad: uitgesloten, en waarom
@@ -34,9 +34,12 @@ schoonmaken van die pointer in het CMS blijft een aanbeveling.
   noodnummer zijn bij alle 253 vertegenwoordigingen leeg. Dat is geen
   redactionele omissie per post, maar een gat in de feed zelf: een afnemer kan
   deze gegevens nergens vandaan halen.
-- **Adres ontbreekt bij de helft** (L18): 114 vertegenwoordigingen zonder
-  adres — vaak een post in een buurland die het land mede bedient.
-- **Twee datums lopen uiteen** (L12): bij 78 landen wijkt het technische veld
+- **Vijf posten zonder adres** (L18): Kaboel, Tripoli, St. Petersburg,
+  Khartoem en Damascus — allemaal gesloten of opgeschort. De 109 andere
+  vertegenwoordigingen zonder eigen adresregels zijn verwijzingen naar een
+  post in een ander land; hun adres staat daar wél, en de validator legt die
+  koppeling via het gedeelde `id`.
+- **Twee datums lopen uiteen** (L12, informatief): bij 78 landen wijkt het technische veld
   `lastmodified` af van de getoonde "Laatst gewijzigd op". Een afnemer die op
   `lastmodified` sorteert of cachet, laat dus een andere datum zien dan de
   website.

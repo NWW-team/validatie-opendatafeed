@@ -36,7 +36,7 @@ minuut.
 | Kaarten | kaart aanwezig, volledig beschreven, en met `--check-files` ook daadwerkelijk op te halen |
 | Datums | leesbare wijzigingsdatum, technische en getoonde datum gelijk, niet in de toekomst, geldigheidsdatum recent |
 | Pushdatum (`issued`) | aanwezig en leesbaar, niet in de toekomst, niet vóór de eerste publicatie, en een recente wijziging is ook gepusht |
-| Ambassades en consulaten | vertegenwoordiging aanwezig, adres gevuld, contactvelden komen door de feed heen |
+| Ambassades en consulaten | vertegenwoordiging aanwezig, adres ergens in de feed te vinden, contactvelden komen door de feed heen |
 | Vergelijking met de website | met `--check-website`: toont nederlandwereldwijd.nl dezelfde wijzigingsdatum als de feed |
 
 Regels met de zwaarte **Fout** zijn blokkerend (exitcode 1);
@@ -117,6 +117,19 @@ Ze lopen in de praktijk uiteen, en dat mag: een correctie verspringt wel
 die reden meldt L12 alleen informatief dat de technische en de getoonde datum
 verschillen. L23 kijkt naar het geval dat er wél toe doet: een wijziging van
 de afgelopen `--push-venster-dagen` waar geen push op volgde.
+
+## Posten die een ander land bedienen
+
+Niet elk land heeft een eigen ambassade. Amerikaans-Samoa wordt bijvoorbeeld
+bediend vanuit Wellington. In de feed staat onder Amerikaans-Samoa dan een
+vertegenwoordiging met hetzelfde `id` als die van Nieuw-Zeeland en met een
+`dataurl` die daarheen wijst, maar zonder adresregels — het adres staat bij
+Nieuw-Zeeland.
+
+De validator legt die koppeling zelf, via het gedeelde `id`, en telt zo'n
+verwijzing dus niet als een ontbrekend adres. L18 meldt alleen een post
+waarvan het adres nergens in de feed staat. Dat zijn in de praktijk gesloten
+of opgeschorte posten.
 
 ## Over de feed
 
