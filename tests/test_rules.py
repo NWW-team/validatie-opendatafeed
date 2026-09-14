@@ -290,6 +290,55 @@ def test_l17_meldt_een_land_zonder_vertegenwoordiging(settings):
     assert "niet op te halen" in draai("L17", stuk, settings)[0].message
 
 
+def test_l17_noemt_de_vertegenwoordiging_die_alleen_in_de_tekst_staat(settings):
+    # Aruba is een zelfstandig land binnen het Koninkrijk: geen ambassade, wel
+    # een vertegenwoordiging — die in de tekst staat maar niet als record.
+    aruba = maak_record(
+        locationkey="aruba",
+        location="Aruba",
+        isocode="ABW",
+        representations=[],
+        traveladvice=maak_reisadvies(
+            introduction="<p>Aruba is een zelfstandig land binnen het Koninkrijk der "
+            "Nederlanden. Daarom is er geen Nederlandse ambassade op Aruba, maar een "
+            "Nederlandse vertegenwoordiging. Neem in geval van nood contact op met de "
+            "<a href='...'>Nederlandse Vertegenwoordiging in Oranjestad</a>.</p>"
+        ),
+    )
+
+    bevinding = draai("L17", aruba, settings)[0]
+
+    assert "Nederlandse Vertegenwoordiging in Oranjestad" in bevinding.message
+    assert "staat niet bij de vertegenwoordigingen in de feed" in bevinding.message
+    assert bevinding.detail["genoemd"] == "Oranjestad"
+
+
+def test_l17_noemt_de_post_ook_bij_een_kapot_endpoint(settings):
+    sint_maarten = maak_record(
+        representations=[],
+        fetch_errors={"nl-representation": "HTTP 404"},
+        traveladvice=maak_reisadvies(
+            additionalinformation="<p>Neem contact op met de Nederlandse "
+            "Vertegenwoordiging in Philipsburg.</p>"
+        ),
+    )
+
+    bericht = draai("L17", sint_maarten, settings)[0].message
+
+    assert "niet op te halen" in bericht
+    assert "Philipsburg" in bericht
+
+
+def test_l17_zwijgt_over_de_tekst_als_de_vertegenwoordiging_er_wel_is(settings):
+    # Caribisch Nederland: geen vertegenwoordiging én geen vermelding.
+    bonaire = maak_record(locationkey="bonaire", location="Bonaire", isocode="BQ-BO",
+                          representations=[])
+
+    assert draai("L17", bonaire, settings)[0].message == (
+        "Er staat geen Nederlandse vertegenwoordiging bij dit land."
+    )
+
+
 def test_l18_meldt_een_post_waarvan_het_adres_nergens_staat(settings):
     kaal = maak_vertegenwoordiging(address=[""])
     bevinding = draai("L18", maak_record(representations=[kaal]), settings)[0]

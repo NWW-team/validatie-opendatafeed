@@ -8,6 +8,7 @@ heeft.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
@@ -795,22 +796,44 @@ def check_canonical(record: CountryRecord, settings: Settings) -> Iterator[Findi
 @country_rule(
     "L17",
     "Het land heeft een Nederlandse vertegenwoordiging in de feed",
-    "Ambassade- en consulaatgegevens horen bij het reisadvies; ontbreken ze, "
-    "dan ziet een reiziger geen contactmogelijkheid.",
+    "Ambassade- en consulaatgegevens horen bij het reisadvies. Noemt de tekst "
+    "wél een Nederlandse vertegenwoordiging terwijl die niet als record in de "
+    "feed staat, dan ziet een afnemer die contactgegevens uit de feed haalt "
+    "niets — ook al staat het in de lopende tekst.",
     Severity.WARNING,
 )
 def check_representation_present(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
     if record.rate_limited:
         return  # zie F10
-    if record.fetch_errors.get("nl-representation"):
+    genoemd = _genoemde_vertegenwoordiging(record.traveladvice)
+
+    fout = record.fetch_errors.get("nl-representation")
+    if fout:
+        extra = (
+            f" Het reisadvies noemt de Nederlandse Vertegenwoordiging in {genoemd}."
+            if genoemd
+            else ""
+        )
         yield _make(
             "L17",
-            "Vertegenwoordigingen zijn niet op te halen: "
-            f"{record.fetch_errors['nl-representation']}",
+            f"Vertegenwoordigingen zijn niet op te halen: {fout}{extra}",
             record,
+            genoemd=genoemd,
         )
         return
-    if not record.representations:
+
+    if record.representations:
+        return
+
+    if genoemd:
+        yield _make(
+            "L17",
+            f"Het reisadvies verwijst naar de Nederlandse Vertegenwoordiging in "
+            f"{genoemd}, maar die staat niet bij de vertegenwoordigingen in de feed.",
+            record,
+            genoemd=genoemd,
+        )
+    else:
         yield _make("L17", "Er staat geen Nederlandse vertegenwoordiging bij dit land.", record)
 
 
@@ -954,6 +977,38 @@ def check_issued_after_available(record: CountryRecord, settings: Settings) -> I
         )
 
 
+
+
+#: "… de Nederlandse Vertegenwoordiging in Oranjestad …" — de plaatsnaam is
+#: één of twee woorden met een hoofdletter.
+_GENOEMDE_POST = re.compile(
+    r"Nederlandse\s+[Vv]ertegenwoordiging\s+(?:in|op)\s+"
+    r"([A-ZÀ-Þ][\wÀ-ÿ'-]*(?:\s[A-ZÀ-Þ][\wÀ-ÿ'-]*)?)"
+)
+
+
+def _genoemde_vertegenwoordiging(traveladvice: dict[str, Any] | None) -> str | None:
+    """De plaats van een vertegenwoordiging die de tekst van het advies noemt.
+
+    Landen binnen het Koninkrijk hebben geen ambassade maar wel een Nederlandse
+    vertegenwoordiging. Die staat in de lopende tekst van het reisadvies; of
+    hij ook als record in de feed staat, is precies wat L17 wil weten.
+    """
+    if not traveladvice:
+        return None
+    stukken = [
+        strip_html(traveladvice.get("introduction")),
+        strip_html(traveladvice.get("additionalinformation")),
+    ]
+    for categorie in traveladvice.get("content") or []:
+        if not isinstance(categorie, dict):
+            continue
+        for blok in categorie.get("contentblocks") or []:
+            if isinstance(blok, dict):
+                stukken.append(strip_html(blok.get("paragraph")))
+
+    gevonden = _GENOEMDE_POST.search(" ".join(stukken))
+    return gevonden.group(1).strip() if gevonden else None
 
 
 def _map_files(traveladvice: dict[str, Any]) -> list[dict[str, Any]]:

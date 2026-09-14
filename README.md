@@ -162,6 +162,20 @@ Andersom wordt het ook benoemd: regel F11 vermeldt in één informatieve regel
 hoeveel landen vanuit een post in een ander land worden bediend, zodat
 zichtbaar blijft dat die adressen er wél zijn.
 
+## Landen binnen het Koninkrijk
+
+Aruba, Curaçao en Sint Maarten zijn zelfstandige landen binnen het Koninkrijk.
+Daar staat geen Nederlandse ambassade maar een Nederlandse vertegenwoordiging,
+in Oranjestad, Willemstad en Philipsburg. Het reisadvies noemt die met naam en
+link — maar als record in `nl-representation` ontbreken ze.
+
+Een afnemer die contactgegevens uit de feed haalt, ziet voor die landen dus
+niets, terwijl de lopende tekst er wel naar verwijst. L17 meldt dat nu ook zo,
+met de plaatsnaam erbij, in plaats van het kale "geen vertegenwoordiging".
+
+Bonaire, Saba en Sint Eustatius zijn Caribisch Nederland en noemen geen
+vertegenwoordiging; daar valt niets te koppelen.
+
 ## Over de feed
 
 - Basis-URL: `https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd`

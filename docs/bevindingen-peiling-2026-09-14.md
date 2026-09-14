@@ -60,9 +60,17 @@ schoonmaken van die pointer in het CMS blijft een aanbeveling.
   `lastmodified` af van de getoonde "Laatst gewijzigd op". Een afnemer die op
   `lastmodified` sorteert of cachet, laat dus een andere datum zien dan de
   website.
-- **Negen landen zonder vertegenwoordiging** (L17), waarvan Antarctica en
-  Faeröer met een HTTP 404 op het endpoint en Aruba, Bonaire en Curaçao zonder
-  records.
+- **Negen landen zonder vertegenwoordiging** (L17), in drie soorten:
+  - **Het reisadvies noemt er wél een, de feed niet** (3): Aruba verwijst naar
+    de Nederlandse Vertegenwoordiging in Oranjestad, Curaçao naar Willemstad,
+    Sint Maarten naar Philipsburg. Dit zijn zelfstandige landen binnen het
+    Koninkrijk: geen ambassade, wel een vertegenwoordiging. Een afnemer die
+    contactgegevens uit de feed haalt ziet daar niets, terwijl de tekst er wel
+    naar verwijst. Dit is de scherpste bevinding van de drie.
+  - **Het endpoint antwoordt met HTTP 404** (5): Antarctica, Faeröer,
+    Sint Eustatius, Sint Maarten en Spitsbergen.
+  - **Geen records en geen vermelding** (Bonaire, Saba): Caribisch Nederland,
+    dus er valt niets te koppelen.
 
 ## De pushdatum (`issued`)
 
