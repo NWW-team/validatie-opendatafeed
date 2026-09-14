@@ -211,7 +211,7 @@ def test_adres_uit_een_uitgesloten_land_telt_nog_steeds_mee():
 
     rapport = run_rules(maak_snapshot([heilige_stoel, italie]), settings)
 
-    assert [f.rule_id for f in rapport.findings] == []
+    assert [f.rule_id for f in rapport.findings if f.severity is not Severity.INFO] == []
 
 
 def test_uitsluiting_werkt_ook_op_een_oudere_snapshot():
@@ -301,7 +301,7 @@ def test_run_rules_legt_de_koppeling_ook_bij_een_oudere_snapshot():
         Settings(thresholds=Thresholds(min_aantal_reisadviezen=1)),
     )
 
-    assert [f.rule_id for f in rapport.findings] == []
+    assert [f.rule_id for f in rapport.findings if f.severity is not Severity.INFO] == []
 
 
 def test_de_link_naar_een_ander_land_geldt_als_adres():
@@ -326,7 +326,7 @@ def test_de_link_naar_een_ander_land_geldt_als_adres():
 
     assert bediend.address_elsewhere == {"ambassade-wellington": "NZL"}
     rapport = run_rules(snapshot, Settings(thresholds=Thresholds(min_aantal_reisadviezen=1)))
-    assert [f.rule_id for f in rapport.findings] == []
+    assert [f.rule_id for f in rapport.findings if f.severity is not Severity.INFO] == []
 
 
 def test_de_naam_van_het_andere_land_wordt_gebruikt_als_dat_bekend_is():

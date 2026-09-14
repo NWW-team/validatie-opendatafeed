@@ -243,7 +243,7 @@ def test_l17_meldt_een_land_zonder_vertegenwoordiging(settings):
 def test_l18_meldt_een_post_waarvan_het_adres_nergens_staat(settings):
     kaal = maak_vertegenwoordiging(address=[""])
     bevinding = draai("L18", maak_record(representations=[kaal]), settings)[0]
-    assert "nergens in de feed een adres" in bevinding.message
+    assert "nergens een adres" in bevinding.message
 
 
 def test_l18_laat_een_ambassade_met_adres_met_rust(settings):
@@ -427,3 +427,26 @@ def test_l17_verwijt_de_feed_niets_bij_een_afgeknepen_verzoek(settings):
         fetch_errors={"nl-representation": "werd afgeknepen (HTTP 429)"},
     )
     assert draai("L17", afgeknepen, settings) == []
+
+
+def test_f11_benoemt_de_landen_die_vanuit_een_andere_post_worden_bediend(settings):
+    bediend = maak_record(
+        locationkey="amerikaans-samoa", location="Amerikaans-Samoa", isocode="ASM",
+        address_elsewhere={"ambassade-wellington": "Nieuw-Zeeland"},
+    )
+    snapshot = maak_snapshot([maak_record(), bediend])
+
+    bevinding = draai("F11", snapshot, settings)[0]
+
+    assert "bediend door een post in een ander land" in bevinding.message
+    assert bevinding.detail == {"aantal_landen": 1, "aantal_posten": 1}
+
+
+def test_f11_zwijgt_als_elk_land_een_eigen_post_heeft(settings):
+    assert draai("F11", maak_snapshot(), settings) == []
+
+
+def test_l18_legt_uit_waarom_er_geen_adres_is(settings):
+    kaal = maak_vertegenwoordiging(address=[""])
+    bericht = draai("L18", maak_record(representations=[kaal]), settings)[0].message
+    assert "verwijst ook niet naar een post in een ander land" in bericht

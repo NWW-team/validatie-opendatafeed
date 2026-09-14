@@ -327,6 +327,32 @@ def check_rate_limiting(snapshot: FeedSnapshot, settings: Settings) -> Iterator[
     )
 
 
+@feed_rule(
+    "F11",
+    "Landen die vanuit een andere post worden bediend",
+    "Niet elk land heeft een eigen ambassade. Deze landen verwijzen naar de "
+    "post die hen bedient; hun adres staat achter die verwijzing, bij dat "
+    "andere land. Puur ter informatie: dit is hoe de feed het hoort te doen.",
+    Severity.INFO,
+)
+def check_served_elsewhere(snapshot: FeedSnapshot, settings: Settings) -> Iterator[Finding]:
+    bediend = {
+        record.location or record.locationkey: sorted(set(record.address_elsewhere.values()))
+        for record in snapshot.records
+        if record.address_elsewhere
+    }
+    if not bediend:
+        return
+    landen = sorted(set().union(*bediend.values()))
+    yield _make(
+        "F11",
+        f"{len(bediend)} landen worden bediend door een post in een ander land; "
+        f"hun adres staat in de feed bij {len(landen)} andere landen.",
+        aantal_landen=len(bediend),
+        aantal_posten=len(landen),
+    )
+
+
 # --------------------------------------------------------------------------
 # Regels per land
 # --------------------------------------------------------------------------
@@ -746,7 +772,8 @@ def check_representation_address(record: CountryRecord, settings: Settings) -> I
             continue
         yield _make(
             "L18",
-            f"Vertegenwoordiging '{naam}' heeft nergens in de feed een adres.",
+            f"Vertegenwoordiging '{naam}' heeft zelf geen adresregels en verwijst "
+            "ook niet naar een post in een ander land; er is dus nergens een adres.",
             record,
             vertegenwoordiging=naam,
         )

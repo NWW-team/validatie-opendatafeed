@@ -27,7 +27,7 @@ reken op twee tot drie minuten.
 
 ## Wat er gecontroleerd wordt
 
-31 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
+32 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
 (`L…`). `feedvalidator regels` toont ze met uitleg; kort samengevat:
 
 | Onderwerp | Regels |
@@ -136,6 +136,10 @@ werkt ook als dat andere land buiten de ronde viel.
 L18 meldt daarom alleen een post die naar zichzelf verwijst en tóch geen
 adresregels heeft. In de peiling zijn dat er vijf: Kaboel, Tripoli,
 St. Petersburg, Khartoem en Damascus — allemaal gesloten of opgeschort.
+
+Andersom wordt het ook benoemd: regel F11 vermeldt in één informatieve regel
+hoeveel landen vanuit een post in een ander land worden bediend, zodat
+zichtbaar blijft dat die adressen er wél zijn.
 
 ## Over de feed
 
