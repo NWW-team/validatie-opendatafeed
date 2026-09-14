@@ -594,37 +594,51 @@ def check_modification_date(record: CountryRecord, settings: Settings) -> Iterat
 
 @country_rule(
     "L12",
-    "De technische en de getoonde wijzigingsdatum komen overeen",
-    "Het veld lastmodified stuurt caches aan, de getoonde datum stuurt de "
-    "gebruiker aan. Ze mogen uiteenlopen — lastmodified verspringt ook bij een "
-    "typefout, de getoonde datum alleen bij een inhoudelijke wijziging — maar "
-    "een afnemer die op lastmodified sorteert of cachet, toont dan een andere "
-    "datum dan de website. Signaal, geen defect.",
+    "Wijziging, stille wijziging en push in beeld",
+    "Een reisadvies draagt drie datums: de getoonde 'Laatst gewijzigd op', het "
+    "technische lastmodified dat bij élke bewerking verspringt, en issued: het "
+    "moment van de push waar de Reisapp en de informatieservice op afgaan. "
+    "Staat de push niet vooraan, dan is er na de laatste melding nog iets "
+    "gebeurd — zichtbaar voor de lezer, of stil. Deze regel zet de drie naast "
+    "elkaar voor alles wat binnen --push-venster-dagen is gebeurd.",
     Severity.INFO,
 )
-def check_modification_consistency(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
+def check_date_picture(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
     if record.traveladvice is None:
         return
     getoond = modification_date(as_text(record.traveladvice.get("modificationdate")))
-    technisch = parse_iso_datetime(as_text(record.traveladvice.get("lastmodified")))
-    if getoond is None or technisch is None:
-        if technisch is None and as_text(record.traveladvice.get("lastmodified")):
-            yield _make(
-                "L12",
-                f"Het veld lastmodified is geen geldige timestamp: "
-                f"'{as_text(record.traveladvice.get('lastmodified'))}'.",
-                record,
-            )
+    gewijzigd = local_date(parse_iso_datetime(as_text(record.traveladvice.get("lastmodified"))))
+    gepusht = local_date(parse_iso_datetime(as_text(record.traveladvice.get("issued"))))
+    if not (getoond and gewijzigd and gepusht):
         return
-    if technisch.date() != getoond:
-        yield _make(
-            "L12",
-            f"De getoonde wijzigingsdatum is {getoond:%d-%m-%Y}, maar lastmodified staat op "
-            f"{technisch.date():%d-%m-%Y}.",
-            record,
-            getoond=getoond.isoformat(),
-            lastmodified=technisch.isoformat(),
+
+    nieuwste = max(getoond, gewijzigd, gepusht)
+    if nieuwste == gepusht:
+        return  # de push is de laatste beweging: precies zoals het hoort
+    if (_today() - nieuwste).days > settings.thresholds.push_venster_dagen:
+        return  # oud nieuws; alleen recente beweging vraagt om aandacht
+
+    if gewijzigd > getoond:
+        duiding = (
+            f"stil gewijzigd: de lezer ziet {getoond:%d-%m-%Y}, maar het advies is "
+            "daarna nog aangepast en er is niet gepusht"
         )
+    else:
+        duiding = (
+            f"gewijzigd, niet gepusht: de laatste push is "
+            f"{(getoond - gepusht).days} dagen ouder dan de wijziging"
+        )
+
+    yield _make(
+        "L12",
+        f"getoond {getoond:%d-%m-%Y} · gewijzigd {gewijzigd:%d-%m-%Y} · "
+        f"gepusht {gepusht:%d-%m-%Y} — {duiding}.",
+        record,
+        getoond=getoond.isoformat(),
+        gewijzigd=gewijzigd.isoformat(),
+        gepusht=gepusht.isoformat(),
+        duiding="stil gewijzigd" if gewijzigd > getoond else "gewijzigd, niet gepusht",
+    )
 
 
 @country_rule(
@@ -889,34 +903,6 @@ def check_issued_after_available(record: CountryRecord, settings: Settings) -> I
         )
 
 
-@country_rule(
-    "L23",
-    "Een recente wijziging is ook gepusht",
-    "Staat de getoonde wijzigingsdatum ná de laatste push, dan hebben de "
-    "Reisapp en de informatieservice geen melding gedaan van die wijziging. "
-    "Dat kan een bewuste keuze zijn bij een kleine correctie; bij een inhoudelijke "
-    "wijziging is het een gemiste notificatie.",
-    Severity.INFO,
-)
-def check_change_was_pushed(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
-    if record.traveladvice is None:
-        return
-    gewijzigd = modification_date(as_text(record.traveladvice.get("modificationdate")))
-    gepusht = local_date(parse_iso_datetime(as_text(record.traveladvice.get("issued"))))
-    if not gewijzigd or not gepusht:
-        return
-    venster = settings.thresholds.push_venster_dagen
-    if (_today() - gewijzigd).days > venster or gewijzigd <= gepusht:
-        return
-    yield _make(
-        "L23",
-        f"Gewijzigd op {gewijzigd:%d-%m-%Y}, maar de laatste push was "
-        f"{gepusht:%d-%m-%Y} ({(gewijzigd - gepusht).days} dagen eerder).",
-        record,
-        gewijzigd=gewijzigd.isoformat(),
-        gepusht=gepusht.isoformat(),
-        venster_dagen=venster,
-    )
 
 
 def _map_files(traveladvice: dict[str, Any]) -> list[dict[str, Any]]:

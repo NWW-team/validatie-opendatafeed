@@ -17,8 +17,16 @@ def nl_datum(dagen_geleden: int = 0) -> str:
 
 
 def iso_datum(dagen_geleden: int = 0) -> str:
-    moment = datetime.now(UTC) - timedelta(days=dagen_geleden)
-    return moment.isoformat().replace("+00:00", "Z")
+    """Een UTC-timestamp midden op de dag.
+
+    Midden op de dag, want de validator rekent timestamps om naar Nederlandse
+    tijd voordat hij ze met een kalenderdag vergelijkt. Draait een test rond
+    middernacht, dan zou de uitkomst anders van de klok afhangen.
+    """
+    dag = (datetime.now(UTC) - timedelta(days=dagen_geleden)).date()
+    return datetime(dag.year, dag.month, dag.day, 12, 0, tzinfo=UTC).isoformat().replace(
+        "+00:00", "Z"
+    )
 
 
 def maak_reisadvies(**overrides: Any) -> dict[str, Any]:

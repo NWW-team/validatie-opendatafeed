@@ -74,20 +74,20 @@ Wat opvalt:
   Dat is een bulkactie; voor die landen is er sindsdien geen notificatie meer
   uitgegaan. Op zichzelf geen defect — een stabiel advies hoeft niet gepusht te
   worden — maar het verklaart waarom de meeste pushdatums oud zijn.
-- **48 adviezen zijn de afgelopen 30 dagen gewijzigd zonder push** (L23). Bij
-  een kleine correctie is dat een bewuste keuze; bij een inhoudelijke wijziging
-  betekent het dat reizigers geen melding hebben gekregen. Deze lijst is het
-  aanknopingspunt voor de redactie.
+- **50 adviezen hebben de afgelopen 30 dagen beweging zonder push** (L12):
+  48 zichtbaar gewijzigd zonder dat er een push op volgde, en 2 stil gewijzigd
+  — bewerkt ná de datum die de lezer ziet. Bij een kleine correctie is dat een
+  bewuste keuze; bij een inhoudelijke wijziging betekent het dat reizigers geen
+  melding hebben gekregen. Deze lijst is het aanknopingspunt voor de redactie.
 - **Antarctica** heeft een pushdatum (07-08-2023) die vóór de eerste publicatie
   ligt (24-04-2024) — één van beide datums klopt niet.
 
-De regel die de getoonde wijzigingsdatum met `lastmodified` vergelijkt (L12)
-staat sinds deze peiling op informatief. Uit de data blijkt dat die twee
-legitiem uiteenlopen: `lastmodified` verspringt bij elke bewerking, de getoonde
-datum alleen bij een inhoudelijke wijziging. Van de 226 adviezen komt de
-getoonde datum bij 148 overeen met `lastmodified`, bij 20 met `issued`, en bij
-70 met geen van beide. Als waarschuwing leverde dat 78 meldingen op die geen
-actie vroegen.
+L12 zet de drie datums naast elkaar met een duiding erachter, in plaats van
+twee losse regels die elk een stukje van het beeld gaven. Over alle 226
+adviezen verdeelt dat zich zo: bij 12 is de push de laatste beweging, bij 78
+is `lastmodified` het laatst (stil gewijzigd) en bij 136 de getoonde datum
+(gewijzigd, niet gepusht). Alleen wat binnen het venster van 30 dagen valt
+wordt gemeld — 50 adviezen — want oudere beweging vraagt geen actie meer.
 
 ## Wat wél volledig op orde is
 

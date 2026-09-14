@@ -196,15 +196,65 @@ def test_l11_meldt_een_onleesbare_wijzigingsdatum(settings):
     assert "niet te lezen" in draai("L11", rommel, settings)[0].message
 
 
-def test_l12_ziet_verschil_tussen_getoonde_en_technische_datum(settings):
+def test_l12_toont_de_drie_datums_bij_een_wijziging_zonder_push(settings):
     record = maak_record(
         traveladvice=maak_reisadvies(
-            modificationdate=f"Laatst gewijzigd op: {nl_datum(30)} | "
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
             f"Nog steeds geldig op: {nl_datum(1)}",
-            lastmodified=iso_datum(2),
+            lastmodified=iso_datum(5),
+            issued=iso_datum(400),
         )
     )
-    assert len(draai("L12", record, settings)) == 1
+
+    bevinding = draai("L12", record, settings)[0]
+
+    assert "getoond" in bevinding.message
+    assert "gewijzigd" in bevinding.message
+    assert "gepusht" in bevinding.message
+    assert bevinding.detail["duiding"] == "gewijzigd, niet gepusht"
+
+
+def test_l12_herkent_een_stille_wijziging(settings):
+    # De lezer ziet een oudere datum dan het moment waarop er is bewerkt.
+    record = maak_record(
+        traveladvice=maak_reisadvies(
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(10)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            lastmodified=iso_datum(3),
+            issued=iso_datum(400),
+        )
+    )
+
+    bevinding = draai("L12", record, settings)[0]
+
+    assert bevinding.detail["duiding"] == "stil gewijzigd"
+    assert "de lezer ziet" in bevinding.message
+
+
+def test_l12_zwijgt_als_de_push_de_laatste_beweging_is(settings):
+    record = maak_record(
+        traveladvice=maak_reisadvies(
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            lastmodified=iso_datum(5),
+            issued=iso_datum(2),
+        )
+    )
+
+    assert draai("L12", record, settings) == []
+
+
+def test_l12_zwijgt_over_beweging_buiten_het_venster(settings):
+    record = maak_record(
+        traveladvice=maak_reisadvies(
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(200)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            lastmodified=iso_datum(200),
+            issued=iso_datum(400),
+        )
+    )
+
+    assert draai("L12", record, settings) == []
 
 
 def test_l13_meldt_een_datum_in_de_toekomst(settings):
@@ -320,43 +370,6 @@ def test_l22_meldt_een_push_van_voor_de_eerste_publicatie(settings):
     )
     assert "vóór de eerste publicatie" in draai("L22", omgedraaid, settings)[0].message
     assert draai("L22", maak_record(), settings) == []
-
-
-def test_l23_meldt_een_recente_wijziging_die_niet_gepusht_is(settings):
-    # Vijf dagen geleden gewijzigd, maar de laatste push was een jaar eerder.
-    record = maak_record(
-        traveladvice=maak_reisadvies(
-            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
-            f"Nog steeds geldig op: {nl_datum(1)}",
-            issued=iso_datum(370),
-        )
-    )
-    bevinding = draai("L23", record, settings)[0]
-    assert "de laatste push was" in bevinding.message
-    assert bevinding.detail["venster_dagen"] == 30
-
-
-def test_l23_zwijgt_over_een_oude_wijziging_buiten_het_venster(settings):
-    # Buiten het venster: dit is de normale toestand van een stabiel advies.
-    record = maak_record(
-        traveladvice=maak_reisadvies(
-            modificationdate=f"Laatst gewijzigd op: {nl_datum(200)} | "
-            f"Nog steeds geldig op: {nl_datum(1)}",
-            issued=iso_datum(370),
-        )
-    )
-    assert draai("L23", record, settings) == []
-
-
-def test_l23_zwijgt_als_de_push_na_de_wijziging_kwam(settings):
-    record = maak_record(
-        traveladvice=maak_reisadvies(
-            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
-            f"Nog steeds geldig op: {nl_datum(1)}",
-            issued=iso_datum(4),
-        )
-    )
-    assert draai("L23", record, settings) == []
 
 
 def test_f09_meldt_een_bulkpush(settings):
