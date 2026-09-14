@@ -257,3 +257,26 @@ def test_l19_vergelijkt_met_de_website():
 
     stuk = maak_record(website={"url": "https://site/spanje", "error": "HTTP 404"})
     assert "niet op te halen" in draai("L19", stuk, aan)[0].message
+
+
+def test_f08_meldt_een_uitsluiting_die_niet_meer_nodig_is():
+    opgeruimd = Settings(excluded_countries=frozenset({"vaticaanstad"}))
+    snapshot = maak_snapshot([maak_record()])  # alleen Spanje staat nog in de feed
+
+    bevinding = draai("F08", snapshot, opgeruimd)[0]
+
+    assert "kan weg" in bevinding.message
+    assert bevinding.detail["landsleutel"] == "vaticaanstad"
+
+
+def test_f08_zwijgt_zolang_het_land_nog_in_de_feed_staat():
+    nog_aanwezig = Settings(excluded_countries=frozenset({"vaticaanstad"}))
+    snapshot = maak_snapshot(
+        [maak_record(), maak_record(locationkey="vaticaanstad", location="Vaticaanstad")]
+    )
+
+    assert draai("F08", snapshot, nog_aanwezig) == []
+
+
+def test_f08_zwijgt_zonder_uitsluitingen(settings):
+    assert draai("F08", maak_snapshot(), settings) == []

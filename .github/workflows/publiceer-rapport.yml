@@ -40,6 +40,7 @@ jobs:
         run: |
           feedvalidator --output-dir _site \
             --allow-isocode BQ-BO --allow-isocode BQ-SA --allow-isocode BQ-SE \
+            --negeer-land vaticaanstad \
             --fail-on never --quiet
       - uses: actions/upload-pages-artifact@v3
         with:

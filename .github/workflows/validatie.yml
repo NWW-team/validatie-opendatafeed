@@ -66,6 +66,7 @@ jobs:
             --output-dir rapport \
             --save-snapshot rapport/snapshot.json \
             --allow-isocode BQ-BO --allow-isocode BQ-SA --allow-isocode BQ-SE \
+            --negeer-land vaticaanstad \
             ${{ (inputs.check-files && '--check-files') || '' }} \
             ${{ (inputs.check-website && '--check-website') || '' }} \
             --fail-on never \

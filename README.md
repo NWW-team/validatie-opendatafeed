@@ -26,7 +26,7 @@ minuut.
 
 ## Wat er gecontroleerd wordt
 
-24 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
+25 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
 (`L…`). `feedvalidator regels` toont ze met uitleg; kort samengevat:
 
 | Onderwerp | Regels |
@@ -51,6 +51,11 @@ Elke ronde schrijft drie bestanden in `--output-dir` (standaard `rapport/`):
 - `rapport.json` — dezelfde uitkomst machineleesbaar, per regel en per bevinding;
 - `rapport.md` — een samenvatting, onder meer voor het GitHub Actions-overzicht.
 
+Landen die met `--negeer-land` zijn uitgesloten, worden niet getoetst en tellen
+niet mee in de aantallen, maar staan wél met naam in het rapport — zo raakt
+niemand ze stilletjes kwijt. Verdwijnt zo'n land later uit de feed, dan meldt
+regel F08 dat de vlag weg kan, zodat de instelling meegroeit met de feed.
+
 Met `--save-snapshot pad.json` bewaar je de ruwe feed van dat moment. Met
 `--from-snapshot pad.json` draai je de regels daar later opnieuw overheen —
 handig om een peiling te reconstrueren of een regel bij te stellen zonder de
@@ -65,6 +70,7 @@ feed te belasten.
 | `--check-files` | elk kaartbestand daadwerkelijk ophalen |
 | `--check-website` | wijzigingsdatum vergelijken met nederlandwereldwijd.nl |
 | `--allow-isocode CODE` | een landcode accepteren die van ISO 3166-1 afwijkt (herhaalbaar) |
+| `--negeer-land SLEUTEL` | een land buiten beschouwing laten, bijvoorbeeld omdat er bewust geen reisadvies van is (herhaalbaar) |
 | `--geldigheid-max-dagen N` | drempel voor "Nog steeds geldig op" (standaard 180) |
 | `--fail-on error\|warning\|never` | wanneer de exitcode 1 wordt |
 | `--no-theme-css` | geen extern stylesheet laden in het HTML-rapport |

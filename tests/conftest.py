@@ -78,11 +78,20 @@ def maak_record(**overrides: Any) -> CountryRecord:
         "locationkey": "spanje",
         "location": "Spanje",
         "isocode": "ESP",
-        "country": {"locationkey": "spanje", "location": "Spanje", "isocode": "ESP"},
         "traveladvice": maak_reisadvies(),
         "representations": [maak_vertegenwoordiging()],
     }
     velden.update(overrides)
+    # Het landrecord uit /infotypes/countries hoort bij het land te passen,
+    # anders toetsen de feedregels iets anders dan de landregels.
+    velden.setdefault(
+        "country",
+        {
+            "locationkey": velden["locationkey"],
+            "location": velden["location"],
+            "isocode": velden["isocode"],
+        },
+    )
     return CountryRecord(**velden)
 
 

@@ -160,3 +160,55 @@ def test_snapshot_overleeft_opslaan_en_terugladen(tmp_path):
 
     ruim = Settings(thresholds=Thresholds(min_aantal_reisadviezen=1))
     assert run_rules(terug, ruim).findings == []
+
+
+def test_uitgesloten_land_wordt_niet_opgehaald_en_niet_getoetst():
+    client = NepClient(landen("spanje", "vaticaanstad"))
+    settings = Settings(
+        workers=1,
+        excluded_countries=frozenset({"vaticaanstad"}),
+        thresholds=Thresholds(min_aantal_reisadviezen=1),
+    )
+
+    snapshot = fetch_snapshot(client, settings)
+
+    assert client.opgehaald == ["spanje"]
+    assert [r.locationkey for r in snapshot.records] == ["spanje"]
+    # De landenlijst zelf blijft compleet, zodat het rapport kan tonen wat er mist.
+    assert len(snapshot.countries) == 2
+
+    rapport = run_rules(snapshot, settings)
+    assert rapport.countries_checked == 1
+    assert rapport.excluded == ["Vaticaanstad (vaticaanstad)"]
+
+
+def test_uitsluiting_werkt_ook_op_een_oudere_snapshot():
+    volledig = maak_snapshot(
+        [
+            maak_record(),
+            maak_record(locationkey="vaticaanstad", location="Vaticaanstad", isocode="ZZZ"),
+        ]
+    )
+    settings = Settings(
+        excluded_countries=frozenset({"vaticaanstad"}),
+        thresholds=Thresholds(min_aantal_reisadviezen=1),
+    )
+
+    rapport = run_rules(volledig, settings)
+
+    assert rapport.countries_checked == 1
+    assert rapport.findings == []
+
+
+def test_f03_zwijgt_over_een_uitgesloten_land():
+    zonder_advies = maak_snapshot(
+        [maak_record(locationkey="vaticaanstad", location="Vaticaanstad")], traveladvice_index=[]
+    )
+    settings = Settings(
+        excluded_countries=frozenset({"vaticaanstad"}),
+        thresholds=Thresholds(min_aantal_reisadviezen=0),
+    )
+
+    rapport = run_rules(zonder_advies, settings)
+
+    assert [f.rule_id for f in rapport.findings] == []

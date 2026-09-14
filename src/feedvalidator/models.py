@@ -125,6 +125,8 @@ class Report:
     countries_checked: int
     results: list[RuleResult] = field(default_factory=list)
     fetch_errors: dict[str, str] = field(default_factory=dict)
+    #: Landen die op verzoek buiten beschouwing zijn gelaten.
+    excluded: list[str] = field(default_factory=list)
 
     @property
     def findings(self) -> list[Finding]:
@@ -168,5 +170,6 @@ class Report:
                 "healthy": self.healthy,
             },
             "fetch_errors": self.fetch_errors,
+            "excluded": self.excluded,
             "results": [r.to_dict() for r in self.results],
         }

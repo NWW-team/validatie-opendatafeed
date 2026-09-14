@@ -145,6 +145,8 @@ def check_coverage(snapshot: FeedSnapshot, settings: Settings) -> Iterator[Findi
     met_advies = {as_text(item.get("locationkey")) for item in snapshot.traveladvice_index}
     for country in snapshot.countries:
         key = as_text(country.get("locationkey"))
+        if key in settings.excluded_countries:
+            continue
         if key and key not in met_advies:
             yield _make(
                 "F03",
@@ -166,6 +168,8 @@ def check_orphan_advice(snapshot: FeedSnapshot, settings: Settings) -> Iterator[
     landen = {as_text(item.get("locationkey")) for item in snapshot.countries}
     for advice in snapshot.traveladvice_index:
         key = as_text(advice.get("locationkey"))
+        if key in settings.excluded_countries:
+            continue
         if key and key not in landen:
             yield _make(
                 "F04",
@@ -241,6 +245,28 @@ def check_contact_fields(snapshot: FeedSnapshot, settings: Settings) -> Iterator
                 veld=label,
                 sleutels=list(sleutels),
                 totaal=len(vertegenwoordigingen),
+            )
+
+
+@feed_rule(
+    "F08",
+    "Elke uitsluiting is nog nodig",
+    "Een land dat niet meer in de feed staat, hoeft ook niet meer te worden "
+    "uitgesloten. Deze regel meldt zo'n vlag, zodat de instelling meegroeit met "
+    "de feed in plaats van stilletjes te blijven staan.",
+    Severity.INFO,
+)
+def check_stale_exclusions(snapshot: FeedSnapshot, settings: Settings) -> Iterator[Finding]:
+    if not settings.excluded_countries or not snapshot.countries:
+        return
+    in_de_feed = {as_text(land.get("locationkey")) for land in snapshot.countries}
+    for key in sorted(settings.excluded_countries):
+        if key not in in_de_feed:
+            yield _make(
+                "F08",
+                f"Land '{key}' staat niet meer in de feed; de vlag "
+                f"--negeer-land {key} kan weg.",
+                landsleutel=key,
             )
 
 

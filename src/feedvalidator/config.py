@@ -54,4 +54,8 @@ class Settings:
     #: Landcodes die afwijken van ISO 3166-1 maar die het team accepteert
     #: (bijvoorbeeld BQ-BO, BQ-SA en BQ-SE voor Caribisch Nederland).
     extra_isocodes: frozenset[str] = frozenset()
+    #: Landsleutels die buiten beschouwing blijven, bijvoorbeeld omdat er
+    #: bewust geen reisadvies (meer) van is. Ze worden niet getoetst, maar
+    #: wel in het rapport genoemd, zodat niemand ze stilletjes kwijtraakt.
+    excluded_countries: frozenset[str] = frozenset()
     thresholds: Thresholds = field(default_factory=Thresholds)
