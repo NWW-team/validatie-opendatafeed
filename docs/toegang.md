@@ -41,22 +41,29 @@ Voor een ander project, of om het opnieuw te doen:
 1. Open het project in [supabase.com/dashboard](https://supabase.com/dashboard).
 2. Klik links op **SQL Editor** en daarna op **New query**.
 3. Plak de volledige inhoud van [`db/0001_toegang.sql`](../db/0001_toegang.sql).
-4. Pas onderin het e-mailadres aan naar het testaccount dat toegang moet
-   krijgen (standaard `toegestaan@example.org`).
-5. Klik op **Run**. Het script is herhaalbaar: nog eens draaien doet geen kwaad.
+4. Klik op **Run**. Het script is herhaalbaar: nog eens draaien doet geen kwaad.
+5. Zet daarna de adressen die toegang krijgen in `toegestane_gebruikers`. Die
+   staan bewust niet in het script: de repo is openbaar en een allowlist is een
+   lijst met mensen.
 6. Controleer via **Table Editor** dat `toegestane_gebruikers`, `rapporten` en
    `bevindingen` bestaan en dat er bij elke tabel *RLS enabled* staat.
 
-### 2. Twee testaccounts aanmaken — nog te doen
+### 2. Twee testaccounts aanmaken — al gedaan
+
+Er staan twee bevestigde accounts met een wachtwoord in het project: één op de
+allowlist, één er bewust naast. De adressen staan hier niet; ze staan in
+**Authentication → Users** en in `toegestane_gebruikers`.
+
+Voor een volgend account:
 
 1. Klik links op **Authentication** en dan op **Users**.
 2. Klik op **Add user → Create new user**.
-3. Vul `toegestaan@example.org` in met een wachtwoord naar keuze en zet
-   **Auto Confirm User** aan. Dat maakt het account direct bruikbaar zonder
-   bevestigingsmail, en het verandert niets aan je e-mailinstellingen.
-4. Herhaal dit voor `buitenstaander@example.org`. Dit account zet je **niet**
-   op de allowlist — het bestaat om te bewijzen dat inloggen alleen niet genoeg
-   is.
+3. Vul het adres in met een wachtwoord naar keuze en zet **Auto Confirm User**
+   aan. Dat maakt het account direct bruikbaar zonder bevestigingsmail, en het
+   verandert niets aan je e-mailinstellingen.
+4. Wil het account ook echt iets kunnen zien, zet het adres dan in
+   `toegestane_gebruikers`. Zonder die regel kan het inloggen en verder niets —
+   en dat is een prima manier om de afscherming te blijven controleren.
 5. Bewaar de wachtwoorden in je wachtwoordbeheerder, niet in deze repo.
 
 ### 3. Vrije registratie uitzetten — nog te doen
@@ -89,8 +96,12 @@ PostgREST ze zet. Dit is gemeten, niet aangenomen:
 | Wie | `is_toegestaan()` | `bevindingen` | `rapporten` | `toegestane_gebruikers` |
 | --- | --- | --- | --- | --- |
 | `anon`, geen sessie | n.v.t. (mag de functie niet aanroepen) | 0 | 0 | 0 |
-| `authenticated`, `toegestaan@example.org` | `true` | 4 | 1 | 0 |
-| `authenticated`, `buitenstaander@example.org` | `false` | 0 | 0 | 0 |
+| het toegestane account | `true` | 4 | 1 | 0 |
+| het niet-toegestane account | `false` | 0 | 0 | 0 |
+
+De onderste twee rijen zijn gemeten met de `sub` en het e-mailadres van de
+accounts die echt in `auth.users` staan, in de vorm waarin PostgREST ze in het
+token zet.
 
 De allowlist is dus voor niemand leesbaar, ook niet voor wie er zelf op staat.
 
@@ -105,10 +116,10 @@ En een paar randgevallen van het token:
 
 | Token | Op de lijst | Bevindingen |
 | --- | --- | --- |
-| `TOEGESTAAN@Example.ORG` — zelfde adres, andere schrijfwijze | ja | 4 |
+| het toegestane adres, maar met hoofdletters geschreven | ja | 4 |
 | geldige sessie zonder `email`-claim | nee | 0 |
-| niet-toegestaan adres, met `"is_toegestaan": true` en `"admin": true` erin verzonnen | nee | 0 |
-| `toegestaan@example.org.evil.test` — lijkt op het toegestane adres | nee | 0 |
+| een niet-toegestaan adres, met `"is_toegestaan": true` en `"admin": true` erin verzonnen | nee | 0 |
+| een adres dat op het toegestane lijkt, met een extra domein erachter | nee | 0 |
 
 Verzonnen claims halen dus niets uit: de policy kijkt niet naar wat het token
 bewéért, maar zoekt het adres op in de allowlist.
@@ -125,8 +136,9 @@ Twee dingen die deze meting bevestigt en die makkelijk te verwarren zijn:
 ## Testen in de browser — nog te doen
 
 Dit deel is nog niet gedaan, en kan ook niet vanuit de ontwikkelomgeving: die
-mag `*.supabase.co` en `*.github.io` niet benaderen, en de twee testaccounts
-bestaan nog niet. Er is dus nog geen enkele echte inlogsessie geweest.
+mag `*.supabase.co` en `*.github.io` niet benaderen. De accounts bestaan
+inmiddels wel, maar `last_sign_in_at` is voor allebei nog leeg: er is nog geen
+enkele echte inlogsessie geweest.
 
 De schil staat na publicatie op `/toegang/` naast het rapport. Doorloop deze
 zes gevallen; de verwachte uitkomst staat erbij.
@@ -134,8 +146,8 @@ zes gevallen; de verwachte uitkomst staat erbij.
 | # | Wat je doet | Wat er hoort te gebeuren |
 | --- | --- | --- |
 | 1 | De pagina openen zonder in te loggen | Alleen het inlogformulier. Geen bevindingen in beeld en geen bevindingen in de netwerkverzoeken. |
-| 2 | Inloggen als `toegestaan@example.org` | De tabel met bevindingen verschijnt. |
-| 3 | Inloggen als `buitenstaander@example.org` | "Geen toegang". Het account is ingelogd, de database geeft niets vrij. |
+| 2 | Inloggen met het toegestane account | De tabel met bevindingen verschijnt. |
+| 3 | Inloggen met het niet-toegestane account | "Geen toegang". Het account is ingelogd, de database geeft niets vrij. |
 | 4 | De directe URL van de pagina openen in een nieuw tabblad | Hetzelfde als geval 1: het bestand is openbaar, de inhoud niet. |
 | 5 | Het directe gegevensverzoek openen (de URL onderaan de pagina) | `[]` — een lege lijst. Dit is het verzoek dat de pagina overslaat. |
 | 6 | Uitloggen en daarna vernieuwen, terug, of de URL opnieuw openen | Terug bij het inlogformulier; geen oude gegevens in beeld. |

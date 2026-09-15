@@ -92,16 +92,22 @@ create policy "toegestane gebruikers lezen bevindingen"
 -- Geen insert-, update- of delete-policy. Schrijven kan daardoor alleen met
 -- de service-role key, die in GitHub Actions staat en nooit in de frontend.
 
--- 4. Testaccounts op de lijst --------------------------------------------
+-- 4. Wie op de lijst komt -------------------------------------------------
 
--- Pas deze regel aan naar het e-mailadres dat je in Supabase hebt aangemaakt.
-insert into public.toegestane_gebruikers (email, notitie)
-values ('toegestaan@example.org', 'testaccount dat toegang hoort te hebben')
-on conflict (email) do nothing;
-
--- buitenstaander@example.org staat hier bewust NIET. Dat account bestaat wel
--- als gebruiker, kan inloggen, en krijgt toch geen rij te zien: dat is precies
--- het verschil tussen "ingelogd" en "toegestaan".
+-- Bewust geen adressen in dit bestand: de repo is openbaar en een allowlist
+-- is een lijst met mensen. Ze horen in de database, niet in git.
+--
+-- Een adres toevoegen doe je in de SQL-editor, met de tabel-editor, of hier
+-- met één regel die je niet commit:
+--
+--     insert into public.toegestane_gebruikers (email, notitie)
+--     values ('iemand@voorbeeld.nl', 'waarom deze persoon toegang heeft')
+--     on conflict (email) do nothing;
+--
+-- Het e-mailadres moet in kleine letters; de check-constraint houdt dat vast.
+-- Een account dat niet op de lijst staat, kan gewoon inloggen en krijgt toch
+-- geen rij te zien: dat is precies het verschil tussen "ingelogd" en
+-- "toegestaan", en dat verschil is het hele punt.
 
 -- 5. Wat demogegevens om op te testen ------------------------------------
 
