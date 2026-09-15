@@ -101,7 +101,32 @@ Schrijven is ook geprobeerd, als het toegestane account:
 - `delete` → geen foutmelding, maar nul rijen geraakt: zonder policy ziet de
   opdracht geen enkele rij om te verwijderen.
 
-## Testen in de browser
+En een paar randgevallen van het token:
+
+| Token | Op de lijst | Bevindingen |
+| --- | --- | --- |
+| `TOEGESTAAN@Example.ORG` — zelfde adres, andere schrijfwijze | ja | 4 |
+| geldige sessie zonder `email`-claim | nee | 0 |
+| niet-toegestaan adres, met `"is_toegestaan": true` en `"admin": true` erin verzonnen | nee | 0 |
+| `toegestaan@example.org.evil.test` — lijkt op het toegestane adres | nee | 0 |
+
+Verzonnen claims halen dus niets uit: de policy kijkt niet naar wat het token
+bewéért, maar zoekt het adres op in de allowlist.
+
+Twee dingen die deze meting bevestigt en die makkelijk te verwarren zijn:
+
+- `anon` mag `is_toegestaan()` niet eens aanroepen: *permission denied for
+  function is_toegestaan*.
+- `anon` en `authenticated` hebben allebei gewoon een `select`-recht op de drie
+  tabellen. Wat ze tegenhoudt is dus RLS, niet een ontbrekend recht. Dat is
+  precies de bedoeling: een recht kan iemand later per ongeluk uitdelen, de
+  policy blijft dan staan.
+
+## Testen in de browser — nog te doen
+
+Dit deel is nog niet gedaan, en kan ook niet vanuit de ontwikkelomgeving: die
+mag `*.supabase.co` en `*.github.io` niet benaderen, en de twee testaccounts
+bestaan nog niet. Er is dus nog geen enkele echte inlogsessie geweest.
 
 De schil staat na publicatie op `/toegang/` naast het rapport. Doorloop deze
 zes gevallen; de verwachte uitkomst staat erbij.
