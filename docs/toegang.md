@@ -8,7 +8,7 @@ hoe je controleert dat het klopt.
 
 | | Openbaar | Afgeschermd |
 | --- | --- | --- |
-| `web/index.html`, `web/app.js`, `web/config.js` | ja | — |
+| `web/index.html`, `web/app.js`, `web/config.js`, `web/theme.css` | ja | — |
 | Project-URL en publishable key | ja, dat hoort zo | — |
 | Rijen in `rapporten` en `bevindingen` | — | ja, door RLS |
 | De allowlist zelf | — | ja, onleesbaar via de API |
@@ -198,14 +198,27 @@ Elke ronde overschrijft de vorige: de stap zet de nieuwe rijen weg en
 verwijdert daarna elk ouder rapport, zodat de tabel niet blijft groeien en
 `/toegang/` altijd de laatste ronde toont.
 
-## Het publieke rapport toont nu alleen aantallen
+## Het publieke rapport toont nu alleen de bovenbalk
 
 `index.html` op GitHub Pages draait sinds deze wijziging met
-`--alleen-samenvatting`: de tegels, de regelcatalogus en de aantallen per
-regel blijven zichtbaar, maar de bevindingen zelf — welk land, welke melding
-— zijn vervangen door een verwijzing naar `/toegang/`. Dat is wat de login
-hiernaast ook echt iets laat afschermen: eerder stond dezelfde inhoud al
-zonder inloggen op de startpagina, en beschermde de inlog dus niets nieuws.
+`--alleen-samenvatting`: alleen de statusmelding en de tegels met de
+aantallen (fouten, waarschuwingen, info, regels zonder bevinding, landen
+gecontroleerd) blijven zichtbaar. Het resultaat per regel, de landen en
+posten die buiten beschouwing zijn gelaten, en de bevindingen zelf — welk
+land, welke melding — staan allemaal achter `/toegang/`. Dat is wat de login
+hiernaast ook echt iets laat afschermen: eerder stond een deel van dezelfde
+inhoud (de regelcatalogus met aantallen) al zonder inloggen op de
+startpagina, en beschermde de inlog dus niet alles.
 
 Lokaal draaien (`feedvalidator` zonder de vlag) toont nog gewoon alles — die
 vlag is bedoeld voor precies deze ene, publieke pagina.
+
+`/toegang/` zet na het inloggen de rest van hetzelfde rapport neer: dezelfde
+opmaak (`web/theme.css` is een letterlijke kopie van de CSS in
+`report.py`/`theme.py`, bewaakt door `tests/test_web.py`) en dezelfde
+volgorde van kopjes, met als enige verschil dat "Als gesloten aangemerkt" nu
+ná "Resultaat per regel" staat in plaats van ervoor. De afgeschermde pagina
+haalt daarvoor, naast de losse rijen in `bevindingen`, ook de kolommen
+`regelresultaten`, `buiten_beschouwing`, `gesloten_posten` en `fetch_fouten`
+op `rapporten` op — zie `db/0001_toegang.sql` voor het schema en
+`publiceer-rapport.yml` voor hoe die kolommen gevuld worden.
