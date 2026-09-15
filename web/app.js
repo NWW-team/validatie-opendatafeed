@@ -127,17 +127,24 @@ async function laadBevindingen(supabase) {
     const rij = document.createElement("tr");
     rij.append(
       cel(bevinding.regel_id, { titel: bevinding.regel_titel }),
-      cel(bevinding.zwaarte, { klasse: `zwaarte zwaarte-${bevinding.zwaarte}` }),
+      cel(null, { badge: bevinding.zwaarte }),
       cel(bevinding.land ?? "—"),
-      cel(bevinding.boodschap),
+      cel(bevinding.boodschap, { klasse: "boodschap" }),
     );
     lichaam.append(rij);
   }
 }
 
-function cel(tekst, { klasse, titel } = {}) {
+function cel(tekst, { klasse, titel, badge } = {}) {
   const td = document.createElement("td");
-  td.textContent = tekst;
+  if (badge) {
+    const span = document.createElement("span");
+    span.className = `badge badge-${badge}`;
+    span.textContent = badge;
+    td.append(span);
+  } else {
+    td.textContent = tekst;
+  }
   if (klasse) td.className = klasse;
   if (titel) td.title = titel;
   return td;

@@ -49,12 +49,14 @@ verschuif je die grens.
 
 ## Uitvoer
 
-Elke ronde schrijft drie bestanden in `--output-dir` (standaard `rapport/`):
+Elke ronde schrijft vier bestanden in `--output-dir` (standaard `rapport/`):
 
 - `index.html` — het rapport voor de product owner, in de vormgeving van de
   Rijkshuisstijl Community;
 - `rapport.json` — dezelfde uitkomst machineleesbaar, per regel en per bevinding;
-- `rapport.md` — een samenvatting, onder meer voor het GitHub Actions-overzicht.
+- `rapport.md` — een samenvatting, onder meer voor het GitHub Actions-overzicht;
+- `gebruikershandleiding.pdf` — uitleg over het lezen van het rapport, ook te
+  downloaden via de knop rechtsboven in `index.html`.
 
 Landen die met `--negeer-land` zijn uitgesloten, worden niet getoetst en tellen
 niet mee in de aantallen, maar staan wél met naam in het rapport — zo raakt

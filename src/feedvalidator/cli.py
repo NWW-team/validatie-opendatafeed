@@ -10,7 +10,14 @@ from pathlib import Path
 from . import __version__
 from .client import FeedClient
 from .config import DEFAULT_BASE_URL, DEFAULT_USER_AGENT, Settings, Thresholds
-from .report import render_console, write_html, write_json, write_markdown
+from .report import (
+    MANUAL_FILENAME,
+    render_console,
+    write_html,
+    write_json,
+    write_manual,
+    write_markdown,
+)
 from .rules import COUNTRY_RULES, FEED_RULES
 from .snapshot import load_snapshot, save_snapshot
 from .theme import DEFAULT_THEME_CSS
@@ -224,6 +231,7 @@ def main(argv: list[str] | None = None) -> int:
                 summary_only=args.alleen_samenvatting,
             )
         )
+        uitvoer.append(write_manual(args.output_dir / MANUAL_FILENAME))
     for pad in uitvoer:
         print(f"Geschreven: {pad}")
 

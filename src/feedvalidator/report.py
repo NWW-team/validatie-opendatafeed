@@ -6,12 +6,17 @@ import html
 import json
 from collections.abc import Iterable
 from datetime import UTC
+from importlib import resources
 from pathlib import Path
 
 from .models import Report, RuleResult, Severity
 from .theme import CSS as THEME_CSS
 
 _SEVERITY_VOLGORDE = {Severity.ERROR: 0, Severity.WARNING: 1, Severity.INFO: 2}
+
+#: Bestandsnaam van de meegeleverde gebruikershandleiding, zowel voor de
+#: link in het HTML-rapport als voor het bestand dat ernaast wordt gezet.
+MANUAL_FILENAME = "gebruikershandleiding.pdf"
 
 
 def _gesorteerd(results: Iterable[RuleResult]) -> list[RuleResult]:
@@ -318,10 +323,13 @@ def render_html(
 </head>
 <body class="rhc-theme">
   <header class="rhc-page-header">
-    <div class="rhc-page-header__inner">
-      <h1 class="rhc-heading nl-heading--level-1">Validatie opendatafeed reisadviezen</h1>
-      <p class="nl-paragraph rhc-paragraph--subtle">Ministerie van Buitenlandse Zaken ·
-         Nederland Wereldwijd</p>
+    <div class="rhc-page-header__inner rhc-page-header__row">
+      <div>
+        <h1 class="rhc-heading nl-heading--level-1">Validatie opendatafeed reisadviezen</h1>
+        <p class="nl-paragraph rhc-paragraph--subtle">Ministerie van Buitenlandse Zaken ·
+           Nederland Wereldwijd</p>
+      </div>
+      <a class="rhc-button" href="{_esc(MANUAL_FILENAME)}" download>Gebruikershandleiding (pdf)</a>
     </div>
   </header>
 
@@ -380,4 +388,17 @@ def write_html(
     path.write_text(
         render_html(report, theme_css=theme_css, summary_only=summary_only), encoding="utf-8"
     )
+    return path
+
+
+def write_manual(path: Path) -> Path:
+    """Zet de meegeleverde gebruikershandleiding naast het HTML-rapport.
+
+    De handleiding wordt met het pakket meegeleverd (``assets/``), zodat de
+    downloadknop in het rapport altijd naar een bestaand bestand wijst —
+    zowel lokaal als op de gepubliceerde Pages-pagina.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    bron = resources.files("feedvalidator").joinpath("assets", MANUAL_FILENAME)
+    path.write_bytes(bron.read_bytes())
     return path
