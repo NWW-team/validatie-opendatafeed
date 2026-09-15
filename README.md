@@ -98,7 +98,9 @@ tests of de lint, dan wordt de PR uiteraard wel rood.
 
 `.github/workflows/publiceer-rapport.yml` publiceert het HTML-rapport op GitHub
 Pages, zodat er een vaste URL is om naar te verwijzen: na elke merge naar
-`main`, elke werkdag om 07:45 UTC, en handmatig via *Run workflow*.
+`main`, elke werkdag om 07:45 UTC, en handmatig via *Run workflow*. Dezelfde
+workflow zet op `/toegang/` een afgeschermde weergave neer, waarvoor een
+account nodig is; zie [docs/toegang.md](docs/toegang.md).
 
 Zet Pages in de repo-instellingen onder *Settings → Pages → Source* op
 **GitHub Actions** voordat die workflow voor het eerst draait — met de
