@@ -8,7 +8,9 @@ Waarom: als een reisadvies niet goed toont in de Reisapp, op de website of in de
 informatieservice, ontstaat er discussie of het misgaat in het CMS, in de
 opendatafeed of bij het afnemende systeem. Dit gereedschap beantwoordt de
 middelste vraag met bewijs, zonder koppeling met de brondata in het CMS. Zie
-[STRATEGY.md](STRATEGY.md) voor de achterliggende keuzes.
+[STRATEGY.md](STRATEGY.md) voor de achterliggende keuzes en
+[docs/datastromen.md](docs/datastromen.md) voor de weg die de data aflegt, van
+feed tot rapport.
 
 ## Snel starten
 
@@ -27,8 +29,9 @@ reken op twee tot drie minuten.
 
 ## Wat er gecontroleerd wordt
 
-32 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
-(`L…`). `feedvalidator regels` toont ze met uitleg; kort samengevat:
+34 regels, verdeeld over de feed als geheel (`F01`–`F12`) en elk land
+afzonderlijk (`L01`–`L22`). `feedvalidator regels` toont ze met uitleg; kort
+samengevat:
 
 | Onderwerp | Regels |
 | --- | --- |
