@@ -133,24 +133,27 @@ Twee dingen die deze meting bevestigt en die makkelijk te verwarren zijn:
   precies de bedoeling: een recht kan iemand later per ongeluk uitdelen, de
   policy blijft dan staan.
 
-## Testen in de browser — nog te doen
+## Testen in de browser
 
-Dit deel is nog niet gedaan, en kan ook niet vanuit de ontwikkelomgeving: die
-mag `*.supabase.co` en `*.github.io` niet benaderen. De accounts bestaan
-inmiddels wel, maar `last_sign_in_at` is voor allebei nog leeg: er is nog geen
-enkele echte inlogsessie geweest.
+De schil staat op `/toegang/` naast het rapport. Stand van 15-09-2026:
 
-De schil staat na publicatie op `/toegang/` naast het rapport. Doorloop deze
-zes gevallen; de verwachte uitkomst staat erbij.
+| # | Wat je doet | Wat er hoort te gebeuren | Gedaan |
+| --- | --- | --- | --- |
+| 1 | De pagina openen zonder in te loggen | Alleen het inlogformulier. Geen bevindingen in beeld en geen bevindingen in de netwerkverzoeken. | nog niet |
+| 2 | Inloggen met het toegestane account | De tabel met bevindingen verschijnt. | ja, vier bevindingen |
+| 3 | Inloggen met het niet-toegestane account | "Geen toegang". Het account is ingelogd, de database geeft niets vrij. | ja |
+| 4 | De directe URL van de pagina openen in een nieuw tabblad | Hetzelfde als geval 1: het bestand is openbaar, de inhoud niet. | nog niet |
+| 5 | Het directe gegevensverzoek openen (de URL onderaan de pagina) | `[]` — een lege lijst. Dit is het verzoek dat de pagina overslaat. | nog niet |
+| 6 | Uitloggen en daarna vernieuwen, terug, of de URL opnieuw openen | Terug bij het inlogformulier; geen oude gegevens in beeld. | nog niet |
 
-| # | Wat je doet | Wat er hoort te gebeuren |
-| --- | --- | --- |
-| 1 | De pagina openen zonder in te loggen | Alleen het inlogformulier. Geen bevindingen in beeld en geen bevindingen in de netwerkverzoeken. |
-| 2 | Inloggen met het toegestane account | De tabel met bevindingen verschijnt. |
-| 3 | Inloggen met het niet-toegestane account | "Geen toegang". Het account is ingelogd, de database geeft niets vrij. |
-| 4 | De directe URL van de pagina openen in een nieuw tabblad | Hetzelfde als geval 1: het bestand is openbaar, de inhoud niet. |
-| 5 | Het directe gegevensverzoek openen (de URL onderaan de pagina) | `[]` — een lege lijst. Dit is het verzoek dat de pagina overslaat. |
-| 6 | Uitloggen en daarna vernieuwen, terug, of de URL opnieuw openen | Terug bij het inlogformulier; geen oude gegevens in beeld. |
+Geval 2 en 3 zijn ook in de database terug te zien: beide accounts hebben een
+`last_sign_in_at`, dus er zijn echte sessies geweest. Daarmee is bewezen wat
+uit de policytoets alleen niet volgt — dat `signInWithPassword` werkt met de
+publishable key, dat het token wordt meegestuurd, en dat hetzelfde verschil
+tussen "ingelogd" en "toegestaan" dat in SQL is gemeten ook in de browser
+uitkomt.
+
+Wat nog open staat, is het uitgelogde pad: geval 1, 4, 5 en 6.
 
 Bij geval 5 helpt het om in de ontwikkelaarsconsole (F12 → *Network*) mee te
 kijken: bij geval 1 hoort er helemaal geen verzoek naar `/rest/v1/bevindingen`
