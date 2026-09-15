@@ -50,12 +50,27 @@ grant execute on function public.is_toegestaan() to authenticated;
 -- 3. Wat er beschermd wordt ----------------------------------------------
 
 create table if not exists public.rapporten (
-    id             bigint generated always as identity primary key,
-    gegenereerd_op timestamptz not null,
-    base_url       text not null,
-    samenvatting   jsonb not null default '{}'::jsonb,
-    aangemaakt_op  timestamptz not null default now()
+    id                 bigint generated always as identity primary key,
+    gegenereerd_op     timestamptz not null,
+    base_url           text not null,
+    samenvatting       jsonb not null default '{}'::jsonb,
+    -- Alles wat de afgeschermde weergave nodig heeft om het rapport verder
+    -- af te maken: het resultaat per regel (voor de tabel), de landen en
+    -- posten die buiten beschouwing zijn gelaten, en endpoints die niet
+    -- antwoordden. De losse bevindingen staan apart, in `bevindingen`.
+    regelresultaten    jsonb not null default '[]'::jsonb,
+    buiten_beschouwing text[] not null default '{}',
+    gesloten_posten    text[] not null default '{}',
+    fetch_fouten       jsonb not null default '{}'::jsonb,
+    aangemaakt_op      timestamptz not null default now()
 );
+
+-- Draaide dit script eerder al, dan bestond de tabel voordat deze vier
+-- kolommen er waren; `add column if not exists` haalt hem alsnog bij.
+alter table public.rapporten add column if not exists regelresultaten jsonb not null default '[]'::jsonb;
+alter table public.rapporten add column if not exists buiten_beschouwing text[] not null default '{}';
+alter table public.rapporten add column if not exists gesloten_posten text[] not null default '{}';
+alter table public.rapporten add column if not exists fetch_fouten jsonb not null default '{}'::jsonb;
 
 create table if not exists public.bevindingen (
     id          bigint generated always as identity primary key,
@@ -115,11 +130,34 @@ create policy "toegestane gebruikers lezen bevindingen"
 -- Draait dit script nog eens, dan gebeurt hier niets: de guard kijkt of er al
 -- een rapport staat.
 with nieuwe_ronde as (
-    insert into public.rapporten (gegenereerd_op, base_url, samenvatting)
+    insert into public.rapporten (
+        gegenereerd_op, base_url, samenvatting,
+        regelresultaten, buiten_beschouwing, gesloten_posten
+    )
     select
         timestamptz '2026-09-14 20:00:00+02',
         'https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd',
-        '{"demo": true, "errors": 0, "warnings": 2, "infos": 2}'::jsonb
+        '{"demo": true, "errors": 0, "warnings": 2, "infos": 2}'::jsonb,
+        '[
+            {"regel_id": "L12", "regel_titel": "De drie datums naast elkaar",
+             "beschrijving": "Demo: zet getoond, gewijzigd en gepusht naast elkaar.",
+             "zwaarte": "warning", "gecontroleerd": 220, "in_orde": 219,
+             "bevindingen_aantal": 1, "ok": false},
+            {"regel_id": "L17", "regel_titel": "Vertegenwoordiging aanwezig",
+             "beschrijving": "Demo: elke genoemde vertegenwoordiging moet als record bestaan.",
+             "zwaarte": "warning", "gecontroleerd": 220, "in_orde": 219,
+             "bevindingen_aantal": 1, "ok": false},
+            {"regel_id": "L18", "regel_titel": "Adres ergens in de feed te vinden",
+             "beschrijving": "Demo: elke post heeft een adres, tenzij gesloten.",
+             "zwaarte": "info", "gecontroleerd": 220, "in_orde": 219,
+             "bevindingen_aantal": 1, "ok": false},
+            {"regel_id": "F11", "regel_titel": "Landen die vanuit een andere post worden bediend",
+             "beschrijving": "Demo: informatief overzicht, geen fout.",
+             "zwaarte": "info", "gecontroleerd": 1, "in_orde": 0,
+             "bevindingen_aantal": 1, "ok": false}
+        ]'::jsonb,
+        array['Vaticaanstad (vaticaanstad)'],
+        array['Ambassade Kaboel (ambassade-kaboel)']
     where not exists (select 1 from public.rapporten)
     returning id
 )

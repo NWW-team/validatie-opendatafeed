@@ -92,6 +92,18 @@ def test_html_laadt_het_thema_alleen_als_erom_gevraagd_wordt():
     assert '<link rel="stylesheet" href="https://cdn.example/rhc.css">' in met
 
 
+def test_html_zet_gesloten_posten_onder_het_resultaat_per_regel():
+    settings = Settings(
+        thresholds=Thresholds(min_aantal_reisadviezen=1),
+        closed_posts=frozenset({"ambassade-madrid"}),
+    )
+    pagina = render_html(run_rules(maak_snapshot(), settings))
+
+    positie_tabel = pagina.index("Resultaat per regel")
+    positie_gesloten = pagina.index("Als gesloten aangemerkt")
+    assert positie_gesloten > positie_tabel
+
+
 def test_html_ontsnapt_tekst_uit_de_feed():
     stout = maak_record(location="<script>alert(1)</script>", isocode="ZZZ")
     pagina = render_html(run_rules(maak_snapshot([stout]), RUIM))
@@ -104,20 +116,21 @@ def test_html_wordt_weggeschreven(tmp_path):
     assert pad.exists() and pad.read_text(encoding="utf-8").startswith("<!doctype html>")
 
 
-def test_html_alleen_samenvatting_verbergt_de_bevindingen_zelf():
+def test_html_alleen_samenvatting_toont_alleen_de_bovenbalk():
     volledig = render_html(rapport_met_bevinding())
     samengevat = render_html(rapport_met_bevinding(), summary_only=True)
 
     # De concrete melding ("ISO-code 'ZZZ'...") mag niet in de samenvatting
-    # staan; de aantallen en de regelnaam wel.
+    # staan; de aantallen wel.
     assert "ISO-code &#x27;ZZZ&#x27;" in volledig or "ISO-code 'ZZZ'" in volledig
     assert "ZZZ" not in samengevat
     assert "Fouten" in samengevat
-    assert "L02" in samengevat  # de regelcatalogus blijft zichtbaar
+    # De regelcatalogus ("Resultaat per regel") staat nu ook achter de inlog.
+    assert "L02" not in samengevat
+    assert "Resultaat per regel" not in samengevat
     assert "toegang/" in samengevat
 
 
-def test_html_alleen_samenvatting_bij_een_schone_feed_verwijst_niet_naar_inloggen():
+def test_html_alleen_samenvatting_verwijst_ook_bij_een_schone_feed_naar_inloggen():
     samengevat = render_html(schoon_rapport(), summary_only=True)
-    assert "toegang/" not in samengevat
-    assert "Geen enkele regel leverde een bevinding op." in samengevat
+    assert "toegang/" in samengevat

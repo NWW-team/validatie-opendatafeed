@@ -81,7 +81,6 @@ feed te belasten.
 | `--negeer-land SLEUTEL` | een land buiten beschouwing laten, bijvoorbeeld omdat er bewust geen reisadvies van is (herhaalbaar) |
 | `--gesloten-post POST` | een post die gesloten is en daarom geen adres heeft (herhaalbaar) |
 | `--geldigheid-max-dagen N` | drempel voor "Nog steeds geldig op" (standaard 180) |
-| `--push-venster-dagen N` | hoe ver terug een wijziging "recent" heet bij het toetsen op een push (standaard 30) |
 | `--fail-on error\|warning\|never` | wanneer de exitcode 1 wordt |
 | `--no-theme-css` | geen extern stylesheet laden in het HTML-rapport |
 
@@ -122,8 +121,8 @@ weg naar een verkeerde conclusie:
 | `lastmodified` | technische timestamp van élke bewerking, ook een typefout | caches en sorteringen bij afnemers |
 | `issued` | het moment waarop het advies actief is gepusht | de Reisapp (notificatie) en de informatieservice (bericht) |
 
-Regel L12 zet ze naast elkaar en trekt de conclusie, voor alles wat binnen
-`--push-venster-dagen` is gebeurd:
+Regel L12 zet ze naast elkaar en trekt de conclusie, voor ieder land waar de
+push niet de laatste beweging is — hoe lang geleden ook:
 
 ```
 Australië   getoond 09-09-2026 · gewijzigd 09-09-2026 · gepusht 07-08-2023

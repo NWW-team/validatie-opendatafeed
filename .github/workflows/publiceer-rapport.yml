@@ -53,7 +53,7 @@ jobs:
         # bevindingen na inloggen, en alleen als de database ze vrijgeeft.
         run: |
           mkdir -p _site/toegang
-          cp web/index.html web/app.js web/config.js _site/toegang/
+          cp web/index.html web/app.js web/config.js web/theme.css _site/toegang/
 
       - name: Schrijf de bevindingen naar Supabase
         # De publieke pagina toont alleen aantallen (--alleen-samenvatting);
@@ -92,10 +92,39 @@ jobs:
 
           rapport = json.load(open("_site/rapport.json"))
 
+          # Alles wat de afgeschermde weergave nodig heeft om het rapport
+          # verder af te maken (resultaat per regel, uitzonderingen,
+          # endpointfouten). De losse bevindingen gaan hieronder apart naar
+          # `bevindingen`, dus die blijven hier buiten `regelresultaten`.
+          regelresultaten = [
+              {
+                  "regel_id": regel["rule_id"],
+                  "regel_titel": regel["title"],
+                  "beschrijving": regel["description"],
+                  "zwaarte": regel["severity"],
+                  "gecontroleerd": regel["checked"],
+                  "in_orde": regel["passed"],
+                  "bevindingen_aantal": regel["failed"],
+                  "ok": regel["ok"],
+              }
+              for regel in rapport["results"]
+          ]
+
           nieuwe_ronde = {
               "gegenereerd_op": rapport["generated_at"],
               "base_url": rapport["base_url"],
-              "samenvatting": rapport["summary"],
+              # countries_checked en duration_seconds erbij: de tegels op de
+              # afgeschermde pagina herhalen de samenvatting, en die pagina
+              # heeft geen ander verzoek om die twee getallen op te halen.
+              "samenvatting": {
+                  **rapport["summary"],
+                  "countries_checked": rapport["countries_checked"],
+                  "duration_seconds": rapport["duration_seconds"],
+              },
+              "regelresultaten": regelresultaten,
+              "buiten_beschouwing": rapport["excluded"],
+              "gesloten_posten": rapport["closed_posts"],
+              "fetch_fouten": rapport["fetch_errors"],
           }
           def mislukt(antwoord: "requests.Response", waarbij: str) -> None:
               print(f"Supabase weigerde het verzoek ({waarbij}): HTTP {antwoord.status_code}")

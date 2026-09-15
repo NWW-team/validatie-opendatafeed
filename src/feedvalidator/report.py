@@ -181,13 +181,12 @@ def render_html(
     system. Blijft die leeg, dan valt het rapport terug op de ingebouwde
     tokenwaarden en blijft het zonder netwerk leesbaar.
 
-    ``summary_only`` laat de aantallen en de regelcatalogus staan, maar
-    vervangt de bevindingen zelf — welk land, welke melding — door een
-    verwijzing naar de afgeschermde weergave. Bedoeld voor de openbare
-    Pages-pagina: die staat zonder inloggen open voor iedereen, dus een login
-    ervoor beschermt pas iets als de openbare pagina zelf geen bevindingen
-    meer bevat. Fouten van losse endpoints tellen hier ook als bevinding,
-    want ze noemen specifiek wat er misging.
+    ``summary_only`` laat alleen de meldbalk bovenaan staan — de statusmelding
+    en de tegels met de aantallen. Al het overige (uitzonderingen, het
+    resultaat per regel, en de bevindingen zelf) staat achter een verwijzing
+    naar de afgeschermde weergave. Bedoeld voor de openbare Pages-pagina: die
+    staat zonder inloggen open voor iedereen, dus een login ervoor beschermt
+    pas iets als de openbare pagina zelf verder niets meer prijsgeeft.
     """
     stempel = report.generated_at.astimezone(UTC).strftime("%d-%m-%Y %H:%M UTC")
     gesorteerd = _gesorteerd(report.results)
@@ -232,9 +231,10 @@ def render_html(
             f'<ul class="rhc-unordered-list">{items}</ul>'
         )
 
+    closed_html = ""
     if report.closed_posts:
         items = "".join(f"<li>{_esc(naam)}</li>" for naam in report.closed_posts)
-        excluded_html += (
+        closed_html = (
             '<h2 class="rhc-heading nl-heading--level-2">Als gesloten aangemerkt</h2>'
             '<p class="nl-paragraph rhc-paragraph--rule">Deze posten zijn gesloten of '
             "opgeschort en hoeven daarom geen adres te hebben.</p>"
@@ -265,23 +265,12 @@ def render_html(
     )
 
     if summary_only:
-        fetch_html = ""
-        if report.fetch_errors:
-            excluded_html += (
-                '<h2 class="rhc-heading nl-heading--level-2">Endpoints die niet antwoordden</h2>'
-                '<p class="nl-paragraph rhc-paragraph--rule">Er ging iets mis bij het ophalen; '
-                "de details staan achter de inlog.</p>"
-            )
-        if report.rules_failed:
-            bevindingen_html = (
-                '<p class="nl-paragraph">De bevindingen zelf — welk land, welke melding — '
-                'staan achter een inlog met allowlist. '
-                '<a class="rhc-link" href="toegang/">Ga naar de afgeschermde weergave</a>.</p>'
-            )
-        else:
-            bevindingen_html = (
-                '<p class="nl-paragraph rhc-empty">Geen enkele regel leverde een bevinding op.</p>'
-            )
+        body_html = (
+            '<p class="nl-paragraph">Het resultaat per regel, de uitzonderingen en de '
+            'bevindingen zelf — welk land, welke melding — staan achter een inlog met '
+            'allowlist. <a class="rhc-link" href="toegang/">Ga naar de afgeschermde '
+            "weergave</a>.</p>"
+        )
     else:
         blokken = []
         for resultaat in gesorteerd:
@@ -312,6 +301,26 @@ def render_html(
             if blokken
             else '<p class="nl-paragraph rhc-empty">Geen enkele regel leverde een bevinding op.</p>'
         )
+
+        body_html = f"""{fetch_html}
+
+    {excluded_html}
+
+    <h2 class="rhc-heading nl-heading--level-2">Resultaat per regel</h2>
+    <div class="rhc-table-wrapper">
+      <table class="rhc-table">
+        <thead><tr><th>Regel</th><th>Onderwerp</th><th>Status</th>
+          <th class="num">In orde</th><th class="num">Bevindingen</th></tr></thead>
+        <tbody>
+        {rijen}
+        </tbody>
+      </table>
+    </div>
+
+    {closed_html}
+
+    <h2 class="rhc-heading nl-heading--level-2">Bevindingen</h2>
+    {bevindingen_html}"""
 
     return f"""<!doctype html>
 <html lang="nl">
@@ -345,23 +354,7 @@ def render_html(
       {tegel_html}
     </div>
 
-    {fetch_html}
-
-    {excluded_html}
-
-    <h2 class="rhc-heading nl-heading--level-2">Resultaat per regel</h2>
-    <div class="rhc-table-wrapper">
-      <table class="rhc-table">
-        <thead><tr><th>Regel</th><th>Onderwerp</th><th>Status</th>
-          <th class="num">In orde</th><th class="num">Bevindingen</th></tr></thead>
-        <tbody>
-        {rijen}
-        </tbody>
-      </table>
-    </div>
-
-    <h2 class="rhc-heading nl-heading--level-2">Bevindingen</h2>
-    {bevindingen_html}
+    {body_html}
   </main>
 
   <footer class="rhc-page-footer">
