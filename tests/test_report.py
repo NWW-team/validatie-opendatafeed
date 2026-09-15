@@ -102,3 +102,22 @@ def test_html_ontsnapt_tekst_uit_de_feed():
 def test_html_wordt_weggeschreven(tmp_path):
     pad = write_html(schoon_rapport(), tmp_path / "sub" / "index.html")
     assert pad.exists() and pad.read_text(encoding="utf-8").startswith("<!doctype html>")
+
+
+def test_html_alleen_samenvatting_verbergt_de_bevindingen_zelf():
+    volledig = render_html(rapport_met_bevinding())
+    samengevat = render_html(rapport_met_bevinding(), summary_only=True)
+
+    # De concrete melding ("ISO-code 'ZZZ'...") mag niet in de samenvatting
+    # staan; de aantallen en de regelnaam wel.
+    assert "ISO-code &#x27;ZZZ&#x27;" in volledig or "ISO-code 'ZZZ'" in volledig
+    assert "ZZZ" not in samengevat
+    assert "Fouten" in samengevat
+    assert "L02" in samengevat  # de regelcatalogus blijft zichtbaar
+    assert "toegang/" in samengevat
+
+
+def test_html_alleen_samenvatting_bij_een_schone_feed_verwijst_niet_naar_inloggen():
+    samengevat = render_html(schoon_rapport(), summary_only=True)
+    assert "toegang/" not in samengevat
+    assert "Geen enkele regel leverde een bevinding op." in samengevat

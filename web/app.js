@@ -87,9 +87,13 @@ async function teken(supabase, sessie) {
 }
 
 async function laadBevindingen(supabase) {
+  // Er hoort maar één rapport in de tabel te staan — de schrijfstap ruimt
+  // oudere rondes op — maar we vragen toch expliciet de nieuwste met een id
+  // om op te filteren. Zonder die filter tonen bevindingen van elke ronde
+  // ooit geschreven, niet alleen de laatste.
   const { data: rapporten } = await supabase
     .from("rapporten")
-    .select("gegenereerd_op, samenvatting")
+    .select("id, gegenereerd_op, samenvatting")
     .order("gegenereerd_op", { ascending: false })
     .limit(1);
 
@@ -98,13 +102,19 @@ async function laadBevindingen(supabase) {
     ? `Ronde van ${new Date(rapport.gegenereerd_op).toLocaleString("nl-NL")}`
     : "Nog geen ronde weggeschreven.";
 
+  const lichaam = el("bevindingen");
+  lichaam.replaceChildren();
+
+  if (!rapport) {
+    toon("leegmelding", true);
+    return;
+  }
+
   const { data: bevindingen, error } = await supabase
     .from("bevindingen")
     .select("regel_id, regel_titel, zwaarte, boodschap, land")
+    .eq("rapport_id", rapport.id)
     .order("regel_id");
-
-  const lichaam = el("bevindingen");
-  lichaam.replaceChildren();
 
   if (error) {
     el("rapportregel").textContent = "De gegevens konden niet worden opgehaald.";

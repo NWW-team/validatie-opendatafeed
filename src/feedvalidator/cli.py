@@ -121,6 +121,14 @@ def _add_validate_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="geen extern stylesheet laden (rapport blijft volledig zelfstandig)",
     )
+    uitvoer.add_argument(
+        "--alleen-samenvatting",
+        action="store_true",
+        help="in het HTML-rapport de aantallen en de regelcatalogus tonen, maar de "
+        "bevindingen zelf (welk land, welke melding) vervangen door een verwijzing "
+        "naar de afgeschermde weergave — voor een pagina die zonder inloggen "
+        "openbaar staat",
+    )
     uitvoer.add_argument("--save-snapshot", type=Path, help="ruwe feed wegschrijven naar bestand")
     uitvoer.add_argument(
         "--from-snapshot", type=Path, help="regels draaien op een eerder bewaarde feed"
@@ -208,7 +216,14 @@ def main(argv: list[str] | None = None) -> int:
         uitvoer.append(write_markdown(report, args.output_dir / "rapport.md"))
     if not args.no_html:
         thema = None if args.no_theme_css else args.theme_css
-        uitvoer.append(write_html(report, args.output_dir / "index.html", theme_css=thema))
+        uitvoer.append(
+            write_html(
+                report,
+                args.output_dir / "index.html",
+                theme_css=thema,
+                summary_only=args.alleen_samenvatting,
+            )
+        )
     for pad in uitvoer:
         print(f"Geschreven: {pad}")
 

@@ -164,12 +164,25 @@ def _variant(severity: Severity) -> str:
     return {"error": "error", "warning": "warning", "info": "info"}[severity.value]
 
 
-def render_html(report: Report, max_findings: int = 50, theme_css: str | None = None) -> str:
+def render_html(
+    report: Report,
+    max_findings: int = 50,
+    theme_css: str | None = None,
+    summary_only: bool = False,
+) -> str:
     """Een HTML-rapport in de vormgeving van de Rijkshuisstijl Community.
 
     ``theme_css`` is de URL (of het pad) naar het stylesheet van het design
     system. Blijft die leeg, dan valt het rapport terug op de ingebouwde
     tokenwaarden en blijft het zonder netwerk leesbaar.
+
+    ``summary_only`` laat de aantallen en de regelcatalogus staan, maar
+    vervangt de bevindingen zelf — welk land, welke melding — door een
+    verwijzing naar de afgeschermde weergave. Bedoeld voor de openbare
+    Pages-pagina: die staat zonder inloggen open voor iedereen, dus een login
+    ervoor beschermt pas iets als de openbare pagina zelf geen bevindingen
+    meer bevat. Fouten van losse endpoints tellen hier ook als bevinding,
+    want ze noemen specifiek wat er misging.
     """
     stempel = report.generated_at.astimezone(UTC).strftime("%d-%m-%Y %H:%M UTC")
     gesorteerd = _gesorteerd(report.results)
@@ -246,31 +259,54 @@ def render_html(report: Report, max_findings: int = 50, theme_css: str | None = 
         for r in gesorteerd
     )
 
-    blokken = []
-    for resultaat in gesorteerd:
-        if resultaat.ok:
-            continue
-        items = []
-        for bevinding in resultaat.findings[:max_findings]:
-            plaats = f"<strong>{_esc(bevinding.location)}</strong> — " if bevinding.location else ""
-            items.append(f"<li>{plaats}{_esc(bevinding.message)}</li>")
-        rest = resultaat.failed - max_findings
-        if rest > 0:
-            items.append(f'<li class="rhc-empty">… en nog {rest} soortgelijke bevinding(en)</li>')
-        blokken.append(
-            '<details class="rhc-accordion__section" open>'
-            f"<summary>{_esc(resultaat.rule_id)} — {_esc(resultaat.title)} "
-            f'<span class="rhc-badge rhc-badge--{_variant(resultaat.severity)}">'
-            f"{resultaat.failed}</span></summary>"
-            f'<p class="nl-paragraph rhc-paragraph--rule">{_esc(resultaat.description)}</p>'
-            f'<ul class="rhc-unordered-list">{"".join(items)}</ul>'
-            "</details>"
+    if summary_only:
+        fetch_html = ""
+        if report.fetch_errors:
+            excluded_html += (
+                '<h2 class="rhc-heading nl-heading--level-2">Endpoints die niet antwoordden</h2>'
+                '<p class="nl-paragraph rhc-paragraph--rule">Er ging iets mis bij het ophalen; '
+                "de details staan achter de inlog.</p>"
+            )
+        if report.rules_failed:
+            bevindingen_html = (
+                '<p class="nl-paragraph">De bevindingen zelf — welk land, welke melding — '
+                'staan achter een inlog met allowlist. '
+                '<a class="rhc-link" href="toegang/">Ga naar de afgeschermde weergave</a>.</p>'
+            )
+        else:
+            bevindingen_html = (
+                '<p class="nl-paragraph rhc-empty">Geen enkele regel leverde een bevinding op.</p>'
+            )
+    else:
+        blokken = []
+        for resultaat in gesorteerd:
+            if resultaat.ok:
+                continue
+            items = []
+            for bevinding in resultaat.findings[:max_findings]:
+                plaats = (
+                    f"<strong>{_esc(bevinding.location)}</strong> — " if bevinding.location else ""
+                )
+                items.append(f"<li>{plaats}{_esc(bevinding.message)}</li>")
+            rest = resultaat.failed - max_findings
+            if rest > 0:
+                items.append(
+                    f'<li class="rhc-empty">… en nog {rest} soortgelijke bevinding(en)</li>'
+                )
+            blokken.append(
+                '<details class="rhc-accordion__section" open>'
+                f"<summary>{_esc(resultaat.rule_id)} — {_esc(resultaat.title)} "
+                f'<span class="rhc-badge rhc-badge--{_variant(resultaat.severity)}">'
+                f"{resultaat.failed}</span></summary>"
+                f'<p class="nl-paragraph rhc-paragraph--rule">{_esc(resultaat.description)}</p>'
+                f'<ul class="rhc-unordered-list">{"".join(items)}</ul>'
+                "</details>"
+            )
+        bevindingen_html = (
+            "".join(blokken)
+            if blokken
+            else '<p class="nl-paragraph rhc-empty">Geen enkele regel leverde een bevinding op.</p>'
         )
-    bevindingen_html = (
-        "".join(blokken)
-        if blokken
-        else '<p class="nl-paragraph rhc-empty">Geen enkele regel leverde een bevinding op.</p>'
-    )
 
     return f"""<!doctype html>
 <html lang="nl">
@@ -334,7 +370,14 @@ def render_html(report: Report, max_findings: int = 50, theme_css: str | None = 
 """
 
 
-def write_html(report: Report, path: Path, theme_css: str | None = None) -> Path:
+def write_html(
+    report: Report,
+    path: Path,
+    theme_css: str | None = None,
+    summary_only: bool = False,
+) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_html(report, theme_css=theme_css), encoding="utf-8")
+    path.write_text(
+        render_html(report, theme_css=theme_css, summary_only=summary_only), encoding="utf-8"
+    )
     return path
