@@ -61,6 +61,12 @@ jobs:
         # SUPABASE_SERVICE_ROLE_KEY-secret slaat deze stap zichzelf over, dan
         # blijft de rest van de publicatie gewoon werken — alleen staat er
         # achter /toegang/ dan nog de demoronde uit db/0001_toegang.sql.
+        #
+        # continue-on-error: deze stap mag nooit de publicatie van de
+        # openbare pagina blokkeren. Faalt Supabase (verkeerde sleutel,
+        # netwerkstoring), dan staat die fout hier zichtbaar in de log en
+        # draait de rest van de workflow gewoon door.
+        continue-on-error: true
         env:
           SUPABASE_URL: https://tkfasdijhdthywxorqwa.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -91,13 +97,19 @@ jobs:
               "base_url": rapport["base_url"],
               "samenvatting": rapport["summary"],
           }
+          def mislukt(antwoord: "requests.Response", waarbij: str) -> None:
+              print(f"Supabase weigerde het verzoek ({waarbij}): HTTP {antwoord.status_code}")
+              print(antwoord.text[:2000])
+              sys.exit(1)
+
           antwoord = requests.post(
               f"{url}/rest/v1/rapporten",
               headers={**headers, "Prefer": "return=representation"},
               json=nieuwe_ronde,
               timeout=30,
           )
-          antwoord.raise_for_status()
+          if not antwoord.ok:
+              mislukt(antwoord, "nieuwe ronde aanmaken")
           rapport_id = antwoord.json()[0]["id"]
 
           bevindingen = [
@@ -118,7 +130,8 @@ jobs:
               antwoord = requests.post(
                   f"{url}/rest/v1/bevindingen", headers=headers, json=deel, timeout=60
               )
-              antwoord.raise_for_status()
+              if not antwoord.ok:
+                  mislukt(antwoord, f"bevindingen {start}-{start + len(deel)}")
 
           # Eén actuele ronde in de tabel houden, niet eindeloos laten opstapelen;
           # bevindingen van oudere rondes verdwijnen mee via de foreign key.
@@ -128,7 +141,8 @@ jobs:
               params={"id": f"neq.{rapport_id}"},
               timeout=30,
           )
-          antwoord.raise_for_status()
+          if not antwoord.ok:
+              mislukt(antwoord, "oudere rondes opruimen")
 
           print(f"Ronde {rapport_id} geschreven met {len(bevindingen)} bevinding(en).")
           PY
