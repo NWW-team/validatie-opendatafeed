@@ -8,7 +8,9 @@ Waarom: als een reisadvies niet goed toont in de Reisapp, op de website of in de
 informatieservice, ontstaat er discussie of het misgaat in het CMS, in de
 opendatafeed of bij het afnemende systeem. Dit gereedschap beantwoordt de
 middelste vraag met bewijs, zonder koppeling met de brondata in het CMS. Zie
-[STRATEGY.md](STRATEGY.md) voor de achterliggende keuzes.
+[STRATEGY.md](STRATEGY.md) voor de achterliggende keuzes en
+[docs/datastromen.md](docs/datastromen.md) voor de weg die de data aflegt, van
+feed tot rapport.
 
 ## Snel starten
 
@@ -27,8 +29,9 @@ reken op twee tot drie minuten.
 
 ## Wat er gecontroleerd wordt
 
-32 regels, verdeeld over de feed als geheel (`F…`) en elk land afzonderlijk
-(`L…`). `feedvalidator regels` toont ze met uitleg; kort samengevat:
+34 regels, verdeeld over de feed als geheel (`F01`–`F12`) en elk land
+afzonderlijk (`L01`–`L22`). `feedvalidator regels` toont ze met uitleg; kort
+samengevat:
 
 | Onderwerp | Regels |
 | --- | --- |
@@ -95,7 +98,9 @@ tests of de lint, dan wordt de PR uiteraard wel rood.
 
 `.github/workflows/publiceer-rapport.yml` publiceert het HTML-rapport op GitHub
 Pages, zodat er een vaste URL is om naar te verwijzen: na elke merge naar
-`main`, elke werkdag om 07:45 UTC, en handmatig via *Run workflow*.
+`main`, elke werkdag om 07:45 UTC, en handmatig via *Run workflow*. Dezelfde
+workflow zet op `/toegang/` een afgeschermde weergave neer, waarvoor een
+account nodig is; zie [docs/toegang.md](docs/toegang.md).
 
 Zet Pages in de repo-instellingen onder *Settings → Pages → Source* op
 **GitHub Actions** voordat die workflow voor het eerst draait — met de

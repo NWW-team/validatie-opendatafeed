@@ -47,6 +47,13 @@ jobs:
             --gesloten-post ambassade-khartoem \
             --gesloten-post ambassade-damascus \
             --fail-on never --quiet
+      - name: Zet de afgeschermde schil erbij
+        # De schil is een publiek bestand zonder inhoud: hij toont pas
+        # bevindingen na inloggen, en alleen als de database ze vrijgeeft.
+        run: |
+          mkdir -p _site/toegang
+          cp web/index.html web/app.js web/config.js _site/toegang/
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

@@ -169,6 +169,21 @@ def test_snapshot_overleeft_opslaan_en_terugladen(tmp_path):
     assert run_rules(terug, ruim).findings == []
 
 
+def test_afgeknepen_ronde_blijft_afgeknepen_na_terugladen(tmp_path):
+    # Zonder rate_limited zou een bewaarde peiling er bij herdraaien gezond
+    # uitzien terwijl er adviezen ontbraken die we niet mochten ophalen.
+    afgeknepen = maak_snapshot([maak_record(rate_limited=True)], rate_limited=3)
+    terug = load_snapshot(save_snapshot(afgeknepen, tmp_path / "snapshot.json"))
+
+    assert terug.rate_limited == 3
+    assert terug.records[0].rate_limited is True
+
+    ruim = Settings(thresholds=Thresholds(min_aantal_reisadviezen=1))
+    bevindingen = [b for b in run_rules(terug, ruim).findings if b.rule_id == "F10"]
+    assert len(bevindingen) == 1
+    assert bevindingen[0].detail == {"verzoeken": 3, "landen": 1}
+
+
 def test_uitgesloten_land_wordt_wel_opgehaald_maar_niet_getoetst():
     # Ophalen blijft nodig: een post in het uitgesloten land kan het adres
     # dragen waar een ander land naar verwijst.
