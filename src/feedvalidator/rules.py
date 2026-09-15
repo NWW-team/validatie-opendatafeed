@@ -650,7 +650,7 @@ def check_modification_date(record: CountryRecord, settings: Settings) -> Iterat
     "moment van de push waar de Reisapp en de informatieservice op afgaan. "
     "Staat de push niet vooraan, dan is er na de laatste melding nog iets "
     "gebeurd — zichtbaar voor de lezer, of stil. Deze regel zet de drie naast "
-    "elkaar voor alles wat binnen --push-venster-dagen is gebeurd.",
+    "elkaar voor ieder land waar dat het geval is, hoe lang geleden ook.",
     Severity.INFO,
 )
 def check_date_picture(record: CountryRecord, settings: Settings) -> Iterator[Finding]:
@@ -665,8 +665,6 @@ def check_date_picture(record: CountryRecord, settings: Settings) -> Iterator[Fi
     nieuwste = max(getoond, gewijzigd, gepusht)
     if nieuwste == gepusht:
         return  # de push is de laatste beweging: precies zoals het hoort
-    if (_today() - nieuwste).days > settings.thresholds.push_venster_dagen:
-        return  # oud nieuws; alleen recente beweging vraagt om aandacht
 
     if gewijzigd > getoond:
         duiding = (

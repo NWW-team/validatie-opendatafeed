@@ -244,7 +244,9 @@ def test_l12_zwijgt_als_de_push_de_laatste_beweging_is(settings):
     assert draai("L12", record, settings) == []
 
 
-def test_l12_zwijgt_over_beweging_buiten_het_venster(settings):
+def test_l12_meldt_ook_oude_beweging(settings):
+    # Ook een wijziging van lang geleden die nooit is gepusht, blijft gemeld
+    # worden: L12 kent geen leeftijdsgrens meer.
     record = maak_record(
         traveladvice=maak_reisadvies(
             modificationdate=f"Laatst gewijzigd op: {nl_datum(200)} | "
@@ -254,7 +256,9 @@ def test_l12_zwijgt_over_beweging_buiten_het_venster(settings):
         )
     )
 
-    assert draai("L12", record, settings) == []
+    bevinding = draai("L12", record, settings)[0]
+
+    assert bevinding.detail["duiding"] == "gewijzigd, niet gepusht"
 
 
 def test_l13_meldt_een_datum_in_de_toekomst(settings):

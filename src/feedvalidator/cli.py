@@ -101,13 +101,6 @@ def _add_validate_arguments(parser: argparse.ArgumentParser) -> None:
     drempels.add_argument("--geldigheid-max-dagen", type=int, default=180)
     drempels.add_argument("--wijziging-max-dagen", type=int, default=365)
     drempels.add_argument("--min-reisadviezen", type=int, default=220)
-    drempels.add_argument(
-        "--push-venster-dagen",
-        type=int,
-        default=30,
-        help="hoe ver terug een wijziging 'recent' heet bij het toetsen of er "
-        "na die wijziging nog gepusht is (standaard 30)",
-    )
 
     uitvoer = parser.add_argument_group("uitvoer")
     uitvoer.add_argument(
@@ -168,7 +161,6 @@ def _settings_from_args(args: argparse.Namespace) -> Settings:
             geldigheid_max_dagen=args.geldigheid_max_dagen,
             wijziging_max_dagen=args.wijziging_max_dagen,
             min_aantal_reisadviezen=args.min_reisadviezen,
-            push_venster_dagen=args.push_venster_dagen,
         ),
     )
 

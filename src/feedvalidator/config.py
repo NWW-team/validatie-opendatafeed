@@ -33,9 +33,6 @@ class Thresholds:
     min_aantal_reisadviezen: int = 220
     #: Minimale lengte (tekens) van een gevulde introductie.
     min_introductie_lengte: int = 40
-    #: Hoe ver terug een wijziging "recent" heet bij het toetsen of er na die
-    #: wijziging nog gepusht is (het veld issued).
-    push_venster_dagen: int = 30
 
 
 @dataclass(frozen=True)
