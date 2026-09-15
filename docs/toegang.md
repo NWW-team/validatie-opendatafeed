@@ -25,17 +25,20 @@ ingelogd  ÉN  het e-mailadres staat in toegestane_gebruikers
 ```
 
 Beide voorwaarden staan in de policy zelf (`db/0001_toegang.sql`). Vrije
-registratie staat daarnaast uit in het dashboard, maar dat is de tweede schil.
-Zou iemand tóch een account krijgen, dan levert dat nog steeds geen rij op.
+registratie hoort daarnaast uit te staan in het dashboard (stap 3 hieronder),
+maar dat is de tweede schil. Zou iemand tóch een account krijgen, dan levert
+dat nog steeds geen rij op.
 
 ## Eenmalig instellen in Supabase
 
-Alles hieronder gebeurt in de browser, in het Supabase-dashboard van je eigen
-project. Er is geen lokale installatie en geen CLI voor nodig.
+### 1. De tabellen en policies aanmaken — al gedaan
 
-### 1. De tabellen en policies aanmaken
+Dit schema staat al in het project `rckbrn's validatietool`, aangebracht als
+migratie `toegang_allowlist_en_rls`. Je hoeft hier niets te klikken.
 
-1. Open je project in [supabase.com/dashboard](https://supabase.com/dashboard).
+Voor een ander project, of om het opnieuw te doen:
+
+1. Open het project in [supabase.com/dashboard](https://supabase.com/dashboard).
 2. Klik links op **SQL Editor** en daarna op **New query**.
 3. Plak de volledige inhoud van [`db/0001_toegang.sql`](../db/0001_toegang.sql).
 4. Pas onderin het e-mailadres aan naar het testaccount dat toegang moet
@@ -44,7 +47,7 @@ project. Er is geen lokale installatie en geen CLI voor nodig.
 6. Controleer via **Table Editor** dat `toegestane_gebruikers`, `rapporten` en
    `bevindingen` bestaan en dat er bij elke tabel *RLS enabled* staat.
 
-### 2. Twee testaccounts aanmaken
+### 2. Twee testaccounts aanmaken — nog te doen
 
 1. Klik links op **Authentication** en dan op **Users**.
 2. Klik op **Add user → Create new user**.
@@ -56,7 +59,7 @@ project. Er is geen lokale installatie en geen CLI voor nodig.
    is.
 5. Bewaar de wachtwoorden in je wachtwoordbeheerder, niet in deze repo.
 
-### 3. Vrije registratie uitzetten
+### 3. Vrije registratie uitzetten — nog te doen
 
 1. Ga naar **Authentication → Sign In / Providers** (in oudere projecten:
    **Providers**) en open **Email**.
@@ -65,19 +68,40 @@ project. Er is geen lokale installatie en geen CLI voor nodig.
 Bedient dit Supabase-project ook iets anders, controleer dan eerst of daar
 geen zelfregistratie nodig is.
 
-### 4. De publieke sleutels in de frontend zetten
+### 4. De publieke sleutels in de frontend zetten — al gedaan
 
-1. Ga naar **Project Settings → API Keys** (in oudere projecten: **API**).
-2. Kopieer de **Project URL** en de **publishable key** (heet in oudere
-   projecten `anon` `public`).
-3. Zet ze in [`web/config.js`](../web/config.js) en commit dat bestand.
+[`web/config.js`](../web/config.js) wijst naar
+`https://tkfasdijhdthywxorqwa.supabase.co` met de publishable key van dat
+project. Voor een ander project: **Project Settings → API Keys** (in oudere
+projecten: **API**), kopieer de **Project URL** en de **publishable key** (daar
+`anon` `public` geheten) en zet ze in dat bestand.
 
 De **service_role**- of **secret**-sleutel hoort daar nooit. Die negeert RLS
 en geeft toegang tot alles. Hij is alleen nodig als de CI straks rondes
 wegschrijft, en staat dan in GitHub onder *Settings → Secrets and variables →
 Actions*.
 
-## Testen
+## Wat er in de database is nagemeten
+
+De policies zijn getoetst door de rollen en JWT-claims na te bootsen zoals
+PostgREST ze zet. Dit is gemeten, niet aangenomen:
+
+| Wie | `is_toegestaan()` | `bevindingen` | `rapporten` | `toegestane_gebruikers` |
+| --- | --- | --- | --- | --- |
+| `anon`, geen sessie | n.v.t. (mag de functie niet aanroepen) | 0 | 0 | 0 |
+| `authenticated`, `toegestaan@example.org` | `true` | 4 | 1 | 0 |
+| `authenticated`, `buitenstaander@example.org` | `false` | 0 | 0 | 0 |
+
+De allowlist is dus voor niemand leesbaar, ook niet voor wie er zelf op staat.
+
+Schrijven is ook geprobeerd, als het toegestane account:
+
+- `insert` → geweigerd: *new row violates row-level security policy for table
+  "bevindingen"*.
+- `delete` → geen foutmelding, maar nul rijen geraakt: zonder policy ziet de
+  opdracht geen enkele rij om te verwijderen.
+
+## Testen in de browser
 
 De schil staat na publicatie op `/toegang/` naast het rapport. Doorloop deze
 zes gevallen; de verwachte uitkomst staat erbij.
@@ -95,6 +119,23 @@ Bij geval 5 helpt het om in de ontwikkelaarsconsole (F12 → *Network*) mee te
 kijken: bij geval 1 hoort er helemaal geen verzoek naar `/rest/v1/bevindingen`
 te gaan, en bij geval 3 hoort dat verzoek `[]` terug te geven — niet een
 gefilterde lijst en niet een foutmelding die iets prijsgeeft.
+
+## Meldingen van de Supabase-linter
+
+Drie meldingen staan open; twee zijn bedoeld, één is niet van ons:
+
+- *RLS Enabled No Policy* op `toegestane_gebruikers` — **bedoeld**. Geen policy
+  is hier de policy: niemand leest de lijst via de API.
+- *Signed-In Users Can Execute SECURITY DEFINER Function* voor
+  `is_toegestaan()` — **bedoeld**. De functie vertelt de aanroeper alleen iets
+  over zichzelf, en de schil gebruikt dat voor het verschil tussen "niets
+  gevonden" en "jij mag dit niet zien".
+- Dezelfde melding voor `public.rls_auto_enable()` — **stond er al**. Dat is een
+  event-triggerfunctie die RLS aanzet op nieuwe tabellen in `public`. Aanroepen
+  via de API lukt, maar doet niets: buiten een event trigger levert de lus geen
+  commando's op. Wil je de melding kwijt, dan kan
+  `revoke execute on function public.rls_auto_enable() from anon, authenticated;`
+  — dat raakt de werking van de event trigger niet.
 
 ## Wat hierna nog moet
 

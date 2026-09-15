@@ -9,6 +9,6 @@
 // databasewachtwoord. Die geven volledige toegang en negeren RLS. Ze staan
 // alleen in GitHub Actions als repository secret.
 //
-// Vul deze twee waarden in via Supabase → Project Settings → API Keys.
-export const SUPABASE_URL = "";
-export const SUPABASE_PUBLISHABLE_KEY = "";
+// Project: rckbrn's validatietool (eu-west-1).
+export const SUPABASE_URL = "https://tkfasdijhdthywxorqwa.supabase.co";
+export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_iRCBGhmdxfwtqCx0P3UbRQ_mUOMRZ7m";

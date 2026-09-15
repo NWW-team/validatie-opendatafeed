@@ -105,19 +105,22 @@ on conflict (email) do nothing;
 
 -- 5. Wat demogegevens om op te testen ------------------------------------
 
-insert into public.rapporten (id, gegenereerd_op, base_url, samenvatting)
-overriding system value
-values (
-    1,
-    timestamptz '2026-09-14 20:00:00+02',
-    'https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd',
-    '{"demo": true, "errors": 0, "warnings": 2, "infos": 2}'::jsonb
+-- Eén demoronde, zodat er iets te zien is voordat de CI rondes wegschrijft.
+-- Draait dit script nog eens, dan gebeurt hier niets: de guard kijkt of er al
+-- een rapport staat.
+with nieuwe_ronde as (
+    insert into public.rapporten (gegenereerd_op, base_url, samenvatting)
+    select
+        timestamptz '2026-09-14 20:00:00+02',
+        'https://opendata.nederlandwereldwijd.nl/v2/sources/nederlandwereldwijd',
+        '{"demo": true, "errors": 0, "warnings": 2, "infos": 2}'::jsonb
+    where not exists (select 1 from public.rapporten)
+    returning id
 )
-on conflict (id) do nothing;
-
 insert into public.bevindingen (rapport_id, regel_id, regel_titel, zwaarte, boodschap, land, isocode)
-select 1, regel_id, regel_titel, zwaarte, boodschap, land, isocode
-from (values
+select nieuwe_ronde.id, v.regel_id, v.regel_titel, v.zwaarte, v.boodschap, v.land, v.isocode
+from nieuwe_ronde
+cross join (values
     ('L12', 'De drie datums naast elkaar', 'warning',
      'Demo: gewijzigd, niet gepusht — de laatste push is 1129 dagen ouder.',
      'Australië', 'AUS'),
@@ -130,5 +133,4 @@ from (values
     ('F11', 'Landen die vanuit een andere post worden bediend', 'info',
      'Demo: 14 landen worden bediend vanuit een post in een ander land.',
      null, null)
-) as v (regel_id, regel_titel, zwaarte, boodschap, land, isocode)
-where not exists (select 1 from public.bevindingen where rapport_id = 1);
+) as v (regel_id, regel_titel, zwaarte, boodschap, land, isocode);
