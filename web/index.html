@@ -69,14 +69,23 @@
   .melding { font-size: 14px; margin: 0; }
   .melding.fout { color: var(--fout); }
   .rij { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  table { border-collapse: collapse; width: 100%; font-size: 14px; margin-top: 8px; }
-  th, td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .tabel-omslag { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; background: var(--surface); }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--ground); }
+  tr:last-child td { border-bottom: none; }
+  td.boodschap { overflow-wrap: anywhere; }
+  th:nth-child(1), td:nth-child(1) { width: 72px; }
+  th:nth-child(2), td:nth-child(2) { width: 130px; }
+  th:nth-child(3), td:nth-child(3) { width: 160px; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em; word-break: break-all; }
-  .zwaarte { font-weight: 600; white-space: nowrap; }
-  .zwaarte-error { color: var(--fout); }
-  .zwaarte-warning { color: var(--waarschuwing); }
-  .zwaarte-info { color: var(--muted); }
+  .badge {
+    display: inline-block; padding: 2px 10px; font-size: 12px; font-weight: 700;
+    border: 1px solid currentColor; border-radius: 999px; white-space: nowrap;
+  }
+  .badge-error { color: var(--fout); }
+  .badge-warning { color: var(--waarschuwing); background: #fff4e8; }
+  .badge-info { color: var(--muted); }
   footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
   [hidden] { display: none !important; }
 </style>
@@ -134,12 +143,14 @@
     <div id="wel-toegang" class="kaart" hidden>
       <h2>Bevindingen</h2>
       <p id="rapportregel" class="melding" style="color:var(--muted)"></p>
-      <table>
-        <thead>
-          <tr><th>Regel</th><th>Zwaarte</th><th>Land</th><th>Boodschap</th></tr>
-        </thead>
-        <tbody id="bevindingen"></tbody>
-      </table>
+      <div class="tabel-omslag">
+        <table>
+          <thead>
+            <tr><th>Regel</th><th>Zwaarte</th><th>Land</th><th>Boodschap</th></tr>
+          </thead>
+          <tbody id="bevindingen"></tbody>
+        </table>
+      </div>
       <p id="leegmelding" class="melding" style="color:var(--muted)" hidden>
         Geen bevindingen gevonden.
       </p>
