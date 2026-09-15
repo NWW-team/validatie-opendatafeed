@@ -103,7 +103,7 @@ async function laadRapport(supabase) {
     .from("rapporten")
     .select(
       "id, gegenereerd_op, base_url, samenvatting, regelresultaten, " +
-        "buiten_beschouwing, gesloten_posten, fetch_fouten",
+        "buiten_beschouwing, gesloten_posten, fetch_fouten, datums_per_land",
     )
     .order("gegenereerd_op", { ascending: false })
     .limit(1);
@@ -288,6 +288,30 @@ function bouwRapport(rapport, bevindingen) {
     }
   }
 
+  knopen.push(h2("Datums per land"));
+  knopen.push(
+    p(
+      "De drie datums van elk land naast elkaar, zonder oordeel — de regel " +
+        "hierboven (L12) duidt alleen de afwijkingen.",
+      "rhc-paragraph--rule",
+    ),
+  );
+  const datumsTabel = document.createElement("div");
+  datumsTabel.className = "rhc-table-wrapper";
+  const datumsTable = document.createElement("table");
+  datumsTable.className = "rhc-table";
+  datumsTable.innerHTML =
+    "<thead><tr><th>Land</th><th>ISO</th><th>Getoond</th><th>Gewijzigd</th><th>Gepusht</th></tr></thead>";
+  const datumsBody = document.createElement("tbody");
+  for (const d of rapport.datums_per_land ?? []) {
+    const tr = document.createElement("tr");
+    tr.append(td(d.location), td(d.isocode), tdDatum(d.shown), tdDatum(d.modified), tdDatum(d.pushed));
+    datumsBody.append(tr);
+  }
+  datumsTable.append(datumsBody);
+  datumsTabel.append(datumsTable);
+  knopen.push(datumsTabel);
+
   return knopen;
 }
 
@@ -333,6 +357,20 @@ function td(tekst, klasse) {
   if (klasse) node.className = klasse;
   node.textContent = tekst;
   return node;
+}
+
+function tdDatum(isoDatum) {
+  // De datums komen als "2026-09-15" binnen; tonen doen we ze Nederlands.
+  if (!isoDatum) {
+    const leeg = document.createElement("td");
+    const streep = document.createElement("span");
+    streep.className = "rhc-empty";
+    streep.textContent = "—";
+    leeg.append(streep);
+    return leeg;
+  }
+  const [jaar, maand, dag] = isoDatum.split("-");
+  return td(`${dag}-${maand}-${jaar}`);
 }
 
 function badge(variant, tekst) {

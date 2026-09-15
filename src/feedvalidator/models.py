@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -40,6 +40,31 @@ class Finding:
         data = asdict(self)
         data["severity"] = self.severity.value
         return data
+
+
+@dataclass
+class CountryDates:
+    """De drie datums van één land, zonder oordeel — puur om te kunnen nalezen.
+
+    Anders dan een Finding is dit geen afwijking: elk land met een leesbare
+    datum staat hierin, ook als getoond, gewijzigd en gepusht keurig gelijk
+    lopen. Zie regel L12 voor de kant die wél duidt of het klopt.
+    """
+
+    location: str
+    isocode: str
+    shown: date | None
+    modified: date | None
+    pushed: date | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "location": self.location,
+            "isocode": self.isocode,
+            "shown": self.shown.isoformat() if self.shown else None,
+            "modified": self.modified.isoformat() if self.modified else None,
+            "pushed": self.pushed.isoformat() if self.pushed else None,
+        }
 
 
 @dataclass
@@ -138,6 +163,9 @@ class Report:
     #: Posten die als gesloten zijn aangemerkt en daarom geen adres hoeven te
     #: hebben.
     closed_posts: list[str] = field(default_factory=list)
+    #: De drie datums van elk land, zonder oordeel — voor wie zelf wil
+    #: naleggen, niet alleen de landen die regel L12 als afwijkend meldt.
+    date_overview: list[CountryDates] = field(default_factory=list)
 
     @property
     def findings(self) -> list[Finding]:
@@ -184,4 +212,5 @@ class Report:
             "excluded": self.excluded,
             "closed_posts": self.closed_posts,
             "results": [r.to_dict() for r in self.results],
+            "date_overview": [d.to_dict() for d in self.date_overview],
         }

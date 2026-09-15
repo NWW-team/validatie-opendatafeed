@@ -222,3 +222,8 @@ haalt daarvoor, naast de losse rijen in `bevindingen`, ook de kolommen
 `regelresultaten`, `buiten_beschouwing`, `gesloten_posten` en `fetch_fouten`
 op `rapporten` op — zie `db/0001_toegang.sql` voor het schema en
 `publiceer-rapport.yml` voor hoe die kolommen gevuld worden.
+
+Onderaan staat daar ook de tabel **Datums per land** (kolom `datums_per_land`):
+elk land met zijn getoonde, gewijzigde en gepushte datum, zonder oordeel. Die
+is er voor wie een land wil nalezen waar regel L12 niets over meldt, omdat de
+push daar gewoon de laatste beweging was.

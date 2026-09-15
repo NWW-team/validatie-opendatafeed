@@ -62,15 +62,20 @@ create table if not exists public.rapporten (
     buiten_beschouwing text[] not null default '{}',
     gesloten_posten    text[] not null default '{}',
     fetch_fouten       jsonb not null default '{}'::jsonb,
+    -- De drie datums van elk land, zonder oordeel — zie "Datums per land" in
+    -- report.py. Los van `regelresultaten`/`bevindingen`, die alleen L12's
+    -- eigen duiding van afwijkingen dragen.
+    datums_per_land    jsonb not null default '[]'::jsonb,
     aangemaakt_op      timestamptz not null default now()
 );
 
--- Draaide dit script eerder al, dan bestond de tabel voordat deze vier
--- kolommen er waren; `add column if not exists` haalt hem alsnog bij.
+-- Draaide dit script eerder al, dan bestond de tabel voordat deze kolommen
+-- er waren; `add column if not exists` haalt hem alsnog bij.
 alter table public.rapporten add column if not exists regelresultaten jsonb not null default '[]'::jsonb;
 alter table public.rapporten add column if not exists buiten_beschouwing text[] not null default '{}';
 alter table public.rapporten add column if not exists gesloten_posten text[] not null default '{}';
 alter table public.rapporten add column if not exists fetch_fouten jsonb not null default '{}'::jsonb;
+alter table public.rapporten add column if not exists datums_per_land jsonb not null default '[]'::jsonb;
 
 create table if not exists public.bevindingen (
     id          bigint generated always as identity primary key,
@@ -132,7 +137,7 @@ create policy "toegestane gebruikers lezen bevindingen"
 with nieuwe_ronde as (
     insert into public.rapporten (
         gegenereerd_op, base_url, samenvatting,
-        regelresultaten, buiten_beschouwing, gesloten_posten
+        regelresultaten, buiten_beschouwing, gesloten_posten, datums_per_land
     )
     select
         timestamptz '2026-09-14 20:00:00+02',
@@ -157,7 +162,13 @@ with nieuwe_ronde as (
              "bevindingen_aantal": 1, "ok": false}
         ]'::jsonb,
         array['Vaticaanstad (vaticaanstad)'],
-        array['Ambassade Kaboel (ambassade-kaboel)']
+        array['Ambassade Kaboel (ambassade-kaboel)'],
+        '[
+            {"location": "Australië", "isocode": "AUS", "shown": "2026-09-09",
+             "modified": "2026-09-09", "pushed": "2023-08-07"},
+            {"location": "Oman", "isocode": "OMN", "shown": "2026-09-08",
+             "modified": "2026-09-08", "pushed": "2026-09-08"}
+        ]'::jsonb
     where not exists (select 1 from public.rapporten)
     returning id
 )

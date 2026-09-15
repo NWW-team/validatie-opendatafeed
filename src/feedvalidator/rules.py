@@ -650,7 +650,9 @@ def check_modification_date(record: CountryRecord, settings: Settings) -> Iterat
     "moment van de push waar de Reisapp en de informatieservice op afgaan. "
     "Staat de push niet vooraan, dan is er na de laatste melding nog iets "
     "gebeurd — zichtbaar voor de lezer, of stil. Deze regel zet de drie naast "
-    "elkaar voor ieder land waar dat het geval is, hoe lang geleden ook.",
+    "elkaar voor ieder land waar dat het geval is, hoe lang geleden ook. Voor "
+    "de datums van elk land, ook zonder afwijking, zie 'Datums per land' "
+    "verderop in het rapport.",
     Severity.INFO,
 )
 def check_date_picture(record: CountryRecord, settings: Settings) -> Iterator[Finding]:

@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from conftest import maak_record, maak_reisadvies, maak_snapshot, maak_vertegenwoordiging
+from conftest import (
+    iso_datum,
+    maak_record,
+    maak_reisadvies,
+    maak_snapshot,
+    maak_vertegenwoordiging,
+    nl_datum,
+)
 from feedvalidator.client import FeedError
 from feedvalidator.config import Settings, Thresholds
 from feedvalidator.models import Severity
@@ -133,6 +140,45 @@ def test_rapport_telt_regels_en_bevindingen():
     assert iso_regel.failed == 1
     assert iso_regel.passed == 1
     assert rapport.countries_checked == 2
+
+
+def test_datums_per_land_bevat_elk_land_ook_zonder_afwijking():
+    # Anders dan L12 duidt dit overzicht niets: elk land met een leesbare
+    # datum staat erin, ook een land waarvan de push wél de laatste beweging
+    # is (Oman), naast een land met een echte afwijking (Spanje).
+    ruim = Settings(thresholds=Thresholds(min_aantal_reisadviezen=1))
+    op_orde = maak_record(
+        locationkey="oman",
+        location="Oman",
+        isocode="OMN",
+        traveladvice=maak_reisadvies(
+            id="OMN",
+            location="Oman",
+            locationkey="oman",
+            isocode="OMN",
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            lastmodified=iso_datum(5),
+            issued=iso_datum(5),
+        ),
+    )
+    afwijkend = maak_record(
+        traveladvice=maak_reisadvies(
+            modificationdate=f"Laatst gewijzigd op: {nl_datum(5)} | "
+            f"Nog steeds geldig op: {nl_datum(1)}",
+            lastmodified=iso_datum(5),
+            issued=iso_datum(400),
+        )
+    )
+
+    rapport = run_rules(maak_snapshot([op_orde, afwijkend]), ruim)
+
+    per_land = {d.location: d for d in rapport.date_overview}
+    assert set(per_land) == {"Oman", "Spanje"}
+    assert per_land["Oman"].pushed == per_land["Oman"].modified
+
+    l12 = [f for f in rapport.findings if f.rule_id == "L12"]
+    assert {f.location for f in l12} == {"Spanje"}
 
 
 def test_exitcode_volgt_de_gekozen_drempel():

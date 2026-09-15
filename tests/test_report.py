@@ -104,6 +104,23 @@ def test_html_zet_gesloten_posten_onder_het_resultaat_per_regel():
     assert positie_gesloten > positie_tabel
 
 
+def test_html_toont_datums_per_land_ook_zonder_afwijking():
+    # schoon_rapport() heeft geen L12-bevinding (issued == lastmodified),
+    # maar het land hoort toch in "Datums per land" te staan.
+    pagina = render_html(schoon_rapport())
+
+    assert "Datums per land" in pagina
+    positie_bevindingen = pagina.index("Bevindingen")
+    positie_datums = pagina.index("Datums per land")
+    assert positie_datums > positie_bevindingen
+    assert "Spanje" in pagina[positie_datums:]
+
+
+def test_html_alleen_samenvatting_verbergt_ook_datums_per_land():
+    samengevat = render_html(schoon_rapport(), summary_only=True)
+    assert "Datums per land" not in samengevat
+
+
 def test_html_ontsnapt_tekst_uit_de_feed():
     stout = maak_record(location="<script>alert(1)</script>", isocode="ZZZ")
     pagina = render_html(run_rules(maak_snapshot([stout]), RUIM))

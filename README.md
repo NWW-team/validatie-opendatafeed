@@ -138,6 +138,18 @@ typefout verspringt wel `lastmodified` maar verdient geen notificatie — maar
 in één oogopslag is te zien welke van de drie het laatst is en wat dat
 betekent.
 
+Wie de datums van een land wil nalezen waar L12 niets over te melden heeft —
+Oman is gewoon op tijd gepusht, dus de regel zwijgt — vindt onderaan het
+rapport de tabel **Datums per land**: elk land met zijn drie datums naast
+elkaar, zonder oordeel. Daar is niets goed of fout aan; het is de ruwe stand
+van zaken om zelf te controleren.
+
+```
+Land       ISO   Getoond      Gewijzigd    Gepusht
+Oman       OMN   08-09-2026   08-09-2026   08-09-2026
+Thailand   THA   15-09-2026   15-09-2026   10-09-2026
+```
+
 ## Posten die een ander land bedienen
 
 Niet elk land heeft een eigen ambassade. Amerikaans-Samoa wordt bijvoorbeeld

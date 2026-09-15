@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 import json
 from collections.abc import Iterable
-from datetime import UTC
+from datetime import UTC, date
 from importlib import resources
 from pathlib import Path
 
@@ -302,6 +302,20 @@ def render_html(
             else '<p class="nl-paragraph rhc-empty">Geen enkele regel leverde een bevinding op.</p>'
         )
 
+        def _datumcel(waarde: date | None) -> str:
+            return _esc(f"{waarde:%d-%m-%Y}") if waarde else '<span class="rhc-empty">—</span>'
+
+        datums_rijen = "\n        ".join(
+            "<tr>"
+            f"<td>{_esc(d.location)}</td>"
+            f"<td>{_esc(d.isocode)}</td>"
+            f"<td>{_datumcel(d.shown)}</td>"
+            f"<td>{_datumcel(d.modified)}</td>"
+            f"<td>{_datumcel(d.pushed)}</td>"
+            "</tr>"
+            for d in report.date_overview
+        )
+
         body_html = f"""{fetch_html}
 
     {excluded_html}
@@ -320,7 +334,20 @@ def render_html(
     {closed_html}
 
     <h2 class="rhc-heading nl-heading--level-2">Bevindingen</h2>
-    {bevindingen_html}"""
+    {bevindingen_html}
+
+    <h2 class="rhc-heading nl-heading--level-2">Datums per land</h2>
+    <p class="nl-paragraph rhc-paragraph--rule">De drie datums van elk land naast elkaar,
+       zonder oordeel — regel L12 hierboven duidt alleen de afwijkingen.</p>
+    <div class="rhc-table-wrapper">
+      <table class="rhc-table">
+        <thead><tr><th>Land</th><th>ISO</th><th>Getoond</th><th>Gewijzigd</th>
+          <th>Gepusht</th></tr></thead>
+        <tbody>
+        {datums_rijen}
+        </tbody>
+      </table>
+    </div>"""
 
     return f"""<!doctype html>
 <html lang="nl">

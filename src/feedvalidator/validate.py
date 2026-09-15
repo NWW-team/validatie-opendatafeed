@@ -12,8 +12,8 @@ from typing import Any
 
 from .client import FeedClient, FeedError, RateLimitError
 from .config import Settings
-from .models import CountryRecord, FeedSnapshot, Report, RuleResult, Severity
-from .parsing import as_text
+from .models import CountryDates, CountryRecord, FeedSnapshot, Report, RuleResult, Severity
+from .parsing import as_text, local_date, modification_date, parse_iso_datetime
 from .rules import _map_files, active_rules
 from .website import fetch_website_dates
 
@@ -263,6 +263,7 @@ def run_rules(snapshot: FeedSnapshot, settings: Settings, duration: float = 0.0)
         fetch_errors=dict(snapshot.fetch_errors),
         excluded=_excluded_labels(snapshot, settings),
         closed_posts=_closed_post_labels(snapshot, settings),
+        date_overview=_date_overview(records),
     )
 
 
@@ -287,6 +288,29 @@ def _excluded_labels(snapshot: FeedSnapshot, settings: Settings) -> list[str]:
         f"{namen[key]} ({key})" if namen.get(key) else key
         for key in settings.excluded_countries
     )
+
+
+def _date_overview(records: list[CountryRecord]) -> list[CountryDates]:
+    """De drie datums van elk land, zonder oordeel — zie L12 voor de duiding."""
+    overzicht = []
+    for record in records:
+        if record.traveladvice is None:
+            continue
+        shown = modification_date(as_text(record.traveladvice.get("modificationdate")))
+        modified = local_date(parse_iso_datetime(as_text(record.traveladvice.get("lastmodified"))))
+        pushed = local_date(parse_iso_datetime(as_text(record.traveladvice.get("issued"))))
+        if not (shown or modified or pushed):
+            continue
+        overzicht.append(
+            CountryDates(
+                location=record.location or record.locationkey,
+                isocode=record.isocode or "",
+                shown=shown,
+                modified=modified,
+                pushed=pushed,
+            )
+        )
+    return sorted(overzicht, key=lambda d: d.location)
 
 
 def _closed_post_labels(snapshot: FeedSnapshot, settings: Settings) -> list[str]:
