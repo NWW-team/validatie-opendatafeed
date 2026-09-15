@@ -125,6 +125,7 @@ jobs:
               "buiten_beschouwing": rapport["excluded"],
               "gesloten_posten": rapport["closed_posts"],
               "fetch_fouten": rapport["fetch_errors"],
+              "datums_per_land": rapport["date_overview"],
           }
           def mislukt(antwoord: "requests.Response", waarbij: str) -> None:
               print(f"Supabase weigerde het verzoek ({waarbij}): HTTP {antwoord.status_code}")
