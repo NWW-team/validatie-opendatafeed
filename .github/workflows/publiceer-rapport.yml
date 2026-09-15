@@ -46,6 +46,7 @@ jobs:
             --gesloten-post consulaat-generaal-st-petersburg \
             --gesloten-post ambassade-khartoem \
             --gesloten-post ambassade-damascus \
+            --alleen-samenvatting \
             --fail-on never --quiet
       - name: Zet de afgeschermde schil erbij
         # De schil is een publiek bestand zonder inhoud: hij toont pas
@@ -53,6 +54,84 @@ jobs:
         run: |
           mkdir -p _site/toegang
           cp web/index.html web/app.js web/config.js _site/toegang/
+
+      - name: Schrijf de bevindingen naar Supabase
+        # De publieke pagina toont alleen aantallen (--alleen-samenvatting);
+        # dit is de stap die de echte rijen achter de inlog zet. Zonder de
+        # SUPABASE_SERVICE_ROLE_KEY-secret slaat deze stap zichzelf over, dan
+        # blijft de rest van de publicatie gewoon werken — alleen staat er
+        # achter /toegang/ dan nog de demoronde uit db/0001_toegang.sql.
+        env:
+          SUPABASE_URL: https://tkfasdijhdthywxorqwa.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          import requests
+
+          url = os.environ["SUPABASE_URL"]
+          key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+          if not key:
+              print("Geen SUPABASE_SERVICE_ROLE_KEY ingesteld; deze stap slaat zichzelf over.")
+              sys.exit(0)
+
+          headers = {
+              "apikey": key,
+              "Authorization": f"Bearer {key}",
+              "Content-Type": "application/json",
+          }
+
+          rapport = json.load(open("_site/rapport.json"))
+
+          nieuwe_ronde = {
+              "gegenereerd_op": rapport["generated_at"],
+              "base_url": rapport["base_url"],
+              "samenvatting": rapport["summary"],
+          }
+          antwoord = requests.post(
+              f"{url}/rest/v1/rapporten",
+              headers={**headers, "Prefer": "return=representation"},
+              json=nieuwe_ronde,
+              timeout=30,
+          )
+          antwoord.raise_for_status()
+          rapport_id = antwoord.json()[0]["id"]
+
+          bevindingen = [
+              {
+                  "rapport_id": rapport_id,
+                  "regel_id": vinding["rule_id"],
+                  "regel_titel": vinding["rule_title"],
+                  "zwaarte": vinding["severity"],
+                  "boodschap": vinding["message"],
+                  "land": vinding.get("location"),
+                  "isocode": vinding.get("isocode"),
+              }
+              for regel in rapport["results"]
+              for vinding in regel["findings"]
+          ]
+          for start in range(0, len(bevindingen), 500):
+              deel = bevindingen[start : start + 500]
+              antwoord = requests.post(
+                  f"{url}/rest/v1/bevindingen", headers=headers, json=deel, timeout=60
+              )
+              antwoord.raise_for_status()
+
+          # Eén actuele ronde in de tabel houden, niet eindeloos laten opstapelen;
+          # bevindingen van oudere rondes verdwijnen mee via de foreign key.
+          antwoord = requests.delete(
+              f"{url}/rest/v1/rapporten",
+              headers=headers,
+              params={"id": f"neq.{rapport_id}"},
+              timeout=30,
+          )
+          antwoord.raise_for_status()
+
+          print(f"Ronde {rapport_id} geschreven met {len(bevindingen)} bevinding(en).")
+          PY
 
       - uses: actions/upload-pages-artifact@v3
         with:

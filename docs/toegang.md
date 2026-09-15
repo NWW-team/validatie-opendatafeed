@@ -174,10 +174,38 @@ Drie meldingen staan open; twee zijn bedoeld, één is niet van ons:
   `revoke execute on function public.rls_auto_enable() from anon, authenticated;`
   — dat raakt de werking van de event trigger niet.
 
-## Wat hierna nog moet
+## De rondes wegschrijven — nog één stap te doen
 
-- **De rondes wegschrijven.** Nu staan er demorijen in de tabellen. De stap die
-  `rapport.json` na elke CI-ronde naar Supabase schrijft, bestaat nog niet.
-- **Het publieke rapport.** `index.html` met alle bevindingen staat nog
-  onveranderd op GitHub Pages. Zolang dat zo is, is de inhoud openbaar en is
-  de afscherming hiernaast een oefening. Die keuze staat nog open.
+De workflow (`publiceer-rapport.yml`) schrijft na elke ronde de echte
+bevindingen naar Supabase, met de service-role key als repository secret. Tot
+die secret bestaat, slaat de stap zichzelf over — de rest van de publicatie
+blijft dan gewoon werken, en achter `/toegang/` staat dan nog de demoronde uit
+`db/0001_toegang.sql`.
+
+Zo zet je hem aan:
+
+1. **Project Settings → API Keys** in het Supabase-dashboard (in oudere
+   projecten: **API**). Kopieer de **service_role**- of **secret**-sleutel
+   (niet de publishable key — die staat al in `web/config.js`).
+2. In GitHub: **Settings → Secrets and variables → Actions → New repository
+   secret**.
+3. Naam: `SUPABASE_SERVICE_ROLE_KEY`. Waarde: de sleutel van stap 1. Nooit in
+   een bestand in deze repo, alleen hier.
+4. Draai de workflow eenmaal handmatig (*Actions → Rapport publiceren → Run
+   workflow*) of wacht op de volgende merge naar `main`.
+
+Elke ronde overschrijft de vorige: de stap zet de nieuwe rijen weg en
+verwijdert daarna elk ouder rapport, zodat de tabel niet blijft groeien en
+`/toegang/` altijd de laatste ronde toont.
+
+## Het publieke rapport toont nu alleen aantallen
+
+`index.html` op GitHub Pages draait sinds deze wijziging met
+`--alleen-samenvatting`: de tegels, de regelcatalogus en de aantallen per
+regel blijven zichtbaar, maar de bevindingen zelf — welk land, welke melding
+— zijn vervangen door een verwijzing naar `/toegang/`. Dat is wat de login
+hiernaast ook echt iets laat afschermen: eerder stond dezelfde inhoud al
+zonder inloggen op de startpagina, en beschermde de inlog dus niets nieuws.
+
+Lokaal draaien (`feedvalidator` zonder de vlag) toont nog gewoon alles — die
+vlag is bedoeld voor precies deze ene, publieke pagina.
