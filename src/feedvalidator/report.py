@@ -5,9 +5,10 @@ from __future__ import annotations
 import html
 import json
 from collections.abc import Iterable
-from datetime import UTC, date
+from datetime import date
 from importlib import resources
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .models import Report, RuleResult, Severity
 from .theme import CSS as THEME_CSS
@@ -17,6 +18,20 @@ _SEVERITY_VOLGORDE = {Severity.ERROR: 0, Severity.WARNING: 1, Severity.INFO: 2}
 #: Bestandsnaam van de meegeleverde gebruikershandleiding, zowel voor de
 #: link in het HTML-rapport als voor het bestand dat ernaast wordt gezet.
 MANUAL_FILENAME = "gebruikershandleiding.pdf"
+
+#: Het rapport wordt in Nederland gelezen, dus staat het peilmoment in
+#: Nederlandse tijd. In UTC las het twee uur (zomertijd) of een uur
+#: (wintertijd) vroeger dan de klok van de lezer, wat bij het naslaan van een
+#: bevinding steevast tot de vraag leidde of het rapport wel van vandaag was.
+#: De machineleesbare velden blijven UTC: rapport.json en de Supabase-tabel
+#: houden hun ISO-8601-stempel met offset, zodat afnemers niets hoeven te raden.
+_TIJDZONE = ZoneInfo("Europe/Amsterdam")
+
+
+def _tijdstempel(report: Report) -> str:
+    """Het peilmoment in Nederlandse tijd, met de tijdzone erbij genoemd."""
+    lokaal = report.generated_at.astimezone(_TIJDZONE)
+    return f"{lokaal:%d-%m-%Y %H:%M} (Nederlandse tijd)"
 
 
 def _gesorteerd(results: Iterable[RuleResult]) -> list[RuleResult]:
@@ -33,7 +48,7 @@ def _gesorteerd(results: Iterable[RuleResult]) -> list[RuleResult]:
 def render_console(report: Report, max_findings: int = 5) -> str:
     """Een korte samenvatting voor de terminal."""
     lijnen: list[str] = []
-    stempel = report.generated_at.astimezone(UTC).strftime("%d-%m-%Y %H:%M UTC")
+    stempel = _tijdstempel(report)
     lijnen.append(f"Validatie opendatafeed — {stempel}")
     lijnen.append(f"Feed: {report.base_url}")
     lijnen.append(
@@ -94,7 +109,7 @@ def write_json(report: Report, path: Path) -> Path:
 
 
 def render_markdown(report: Report, max_findings: int = 10) -> str:
-    stempel = report.generated_at.astimezone(UTC).strftime("%d-%m-%Y %H:%M UTC")
+    stempel = _tijdstempel(report)
     regels = [
         "# Validatie opendatafeed reisadviezen",
         "",
@@ -188,7 +203,7 @@ def render_html(
     staat zonder inloggen open voor iedereen, dus een login ervoor beschermt
     pas iets als de openbare pagina zelf verder niets meer prijsgeeft.
     """
-    stempel = report.generated_at.astimezone(UTC).strftime("%d-%m-%Y %H:%M UTC")
+    stempel = _tijdstempel(report)
     gesorteerd = _gesorteerd(report.results)
 
     theme_link = (
