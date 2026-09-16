@@ -17,6 +17,16 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 const el = (id) => document.getElementById(id);
 const toon = (id, zichtbaar = true) => { el(id).hidden = !zichtbaar; };
 
+//: Het peilmoment van de ronde die nu op het scherm staat. Daaraan herkennen
+//: we dat een nieuwe ronde binnen is: de workflow schrijft een nieuwe rij en
+//: ruimt de oude op, dus zodra dit veld verandert zijn er nieuwe gegevens.
+let getoondeRonde = null;
+
+//: Een ronde duurt ongeveer tweeënhalve minuut. We wachten ruimer, zodat een
+//: trage runner geen onterechte foutmelding oplevert.
+const POLL_INTERVAL_MS = 10_000;
+const POLL_TIJDLIMIET_MS = 8 * 60 * 1000;
+
 const SEVERITEIT_VOLGORDE = { error: 0, warning: 1, info: 2 };
 const SEVERITEIT_LABEL = { error: "Fout", warning: "Waarschuwing", info: "Informatief" };
 
@@ -59,6 +69,8 @@ function start() {
   el("uitlogknop").addEventListener("click", async () => {
     await supabase.auth.signOut();
   });
+
+  el("versknop").addEventListener("click", () => ververs(supabase));
 
   // Eén plek die op de sessie reageert: bij het laden van de pagina, na
   // inloggen, na uitloggen, en als het token verloopt.
@@ -113,9 +125,12 @@ async function laadRapport(supabase) {
   inhoud.replaceChildren();
 
   if (!rapport) {
+    getoondeRonde = null;
     el("rapportregel").textContent = "Nog geen ronde weggeschreven.";
     return;
   }
+
+  getoondeRonde = rapport.gegenereerd_op;
 
   const { data: bevindingen, error } = await supabase
     .from("bevindingen")
@@ -131,6 +146,83 @@ async function laadRapport(supabase) {
   el("rapportregel").textContent = `Ronde van ${new Date(rapport.gegenereerd_op).toLocaleString("nl-NL")}`;
   inhoud.append(...bouwRapport(rapport, bevindingen ?? []));
 }
+
+// -- ververs ----------------------------------------------------------------
+
+const wacht = (ms) => new Promise((klaar) => setTimeout(klaar, ms));
+
+function meld(tekst) {
+  el("versmelding").textContent = tekst;
+  toon("versmelding");
+}
+
+function klaarMetVerversen(tekst) {
+  el("versknop").disabled = false;
+  el("versknop").textContent = "Ververs gegevens";
+  meld(tekst);
+}
+
+/** Start een nieuwe validatieronde en wacht tot de gegevens binnen zijn. */
+async function ververs(supabase) {
+  const vorige = getoondeRonde;
+  el("versknop").disabled = true;
+  el("versknop").textContent = "Bezig…";
+  meld("De ronde wordt gestart…");
+
+  const { data: { session } } = await supabase.auth.getSession();
+  let antwoord;
+  try {
+    // De sessie gaat mee, het GitHub-token niet: dat staat in de Edge
+    // Function. Deze pagina kan de workflow dus niet zelf starten, ook niet
+    // als iemand het JavaScript aanpast.
+    antwoord = await fetch(`${SUPABASE_URL}/functions/v1/ververs-rapport`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.access_token ?? ""}`,
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+      },
+    });
+  } catch {
+    klaarMetVerversen("De verversfunctie is niet bereikbaar.");
+    return;
+  }
+
+  const lichaam = await antwoord.json().catch(() => ({}));
+  // 409 betekent: er liep er al een. Dat is geen fout — die ronde levert
+  // dezelfde verse gegevens op, dus wachten we hem gewoon af.
+  if (!antwoord.ok && antwoord.status !== 409) {
+    klaarMetVerversen(lichaam.fout ?? `Starten is niet gelukt (HTTP ${antwoord.status}).`);
+    return;
+  }
+
+  meld(
+    (antwoord.status === 409 ? "Er liep al een ronde; die wordt afgewacht. " : "De ronde loopt. ") +
+      "Dit duurt ongeveer drie minuten; deze pagina werkt zichzelf bij.",
+  );
+
+  const begin = Date.now();
+  while (Date.now() - begin < POLL_TIJDLIMIET_MS) {
+    await wacht(POLL_INTERVAL_MS);
+    const { data } = await supabase
+      .from("rapporten")
+      .select("gegenereerd_op")
+      .order("gegenereerd_op", { ascending: false })
+      .limit(1);
+
+    const nieuwste = data?.[0]?.gegenereerd_op ?? null;
+    if (nieuwste && nieuwste !== vorige) {
+      await laadRapport(supabase);
+      klaarMetVerversen("De gegevens zijn bijgewerkt.");
+      return;
+    }
+  }
+
+  // De schrijfstap naar Supabase mag de publicatie niet blokkeren en staat
+  // daarom op continue-on-error. Slaagt de ronde maar faalt die stap, dan
+  // komen we hier: geen nieuwe rij, terwijl er niets is vastgelopen.
+  klaarMetVerversen("De ronde duurt langer dan verwacht. Kijk bij Actions of hij is vastgelopen.");
+}
+
 
 function bouwRapport(rapport, bevindingen) {
   const s = rapport.samenvatting ?? {};
