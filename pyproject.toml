@@ -9,7 +9,10 @@ description = "Validatie van de Nederland Wereldwijd opendatafeed met reisadviez
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "EUPL-1.2" }
-dependencies = ["requests>=2.31"]
+# tzdata: het rapport zet het peilmoment in Europe/Amsterdam. Linux levert die
+# tijdzone zelf mee, Windows en uitgeklede containers niet, en zonder database
+# faalt zoneinfo met ZoneInfoNotFoundError in plaats van terug te vallen.
+dependencies = ["requests>=2.31", "tzdata>=2024.1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]

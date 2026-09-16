@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 from conftest import maak_record, maak_snapshot
 from feedvalidator.config import Settings, Thresholds
@@ -151,3 +152,36 @@ def test_html_alleen_samenvatting_toont_alleen_de_bovenbalk():
 def test_html_alleen_samenvatting_verwijst_ook_bij_een_schone_feed_naar_inloggen():
     samengevat = render_html(schoon_rapport(), summary_only=True)
     assert "toegang/" in samengevat
+
+
+def _rapport_op(moment: datetime):
+    return run_rules(maak_snapshot(fetched_at=moment), RUIM)
+
+
+def test_peilmoment_staat_in_nederlandse_zomertijd():
+    """13:28 UTC is 15:28 bij ons; in UTC leek het rapport twee uur ouder."""
+    rapport = _rapport_op(datetime(2026, 9, 16, 13, 28, tzinfo=UTC))
+    assert "16-09-2026 15:28 (Nederlandse tijd)" in render_console(rapport)
+
+
+def test_peilmoment_verspringt_mee_met_de_wintertijd():
+    """In januari is het verschil een uur, niet twee."""
+    rapport = _rapport_op(datetime(2026, 1, 16, 13, 28, tzinfo=UTC))
+    assert "16-01-2026 14:28 (Nederlandse tijd)" in render_console(rapport)
+
+
+def test_alle_drie_de_weergaven_tonen_hetzelfde_peilmoment():
+    """Console, Markdown en HTML mogen niet uiteenlopen."""
+    rapport = _rapport_op(datetime(2026, 9, 16, 13, 28, tzinfo=UTC))
+    stempel = "16-09-2026 15:28 (Nederlandse tijd)"
+    assert stempel in render_console(rapport)
+    assert stempel in render_markdown(rapport)
+    assert stempel in render_html(rapport)
+
+
+def test_json_houdt_het_machineleesbare_stempel_in_utc(tmp_path):
+    """Afnemers krijgen ISO-8601 met offset, niet de Nederlandse weergave."""
+    rapport = _rapport_op(datetime(2026, 9, 16, 13, 28, tzinfo=UTC))
+    pad = write_json(rapport, tmp_path / "rapport.json")
+    data = json.loads(pad.read_text(encoding="utf-8"))
+    assert data["generated_at"] == "2026-09-16T13:28:00+00:00"
