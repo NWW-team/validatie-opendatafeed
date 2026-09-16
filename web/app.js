@@ -151,15 +151,20 @@ async function laadRapport(supabase) {
 
 const wacht = (ms) => new Promise((klaar) => setTimeout(klaar, ms));
 
-function meld(tekst) {
-  el("versmelding").textContent = tekst;
+function meld(tekst, fout = false) {
+  const regel = el("versmelding");
+  regel.textContent = tekst;
+  // Een mislukte aanroep is soms binnen een seconde terug. De knop staat dan
+  // alweer in de ruststand en de melding is het enige spoor; in de grijze
+  // stijl van de rest van de regel lees je er straal overheen.
+  regel.style.color = fout ? "var(--app-error)" : "";
   toon("versmelding");
 }
 
-function klaarMetVerversen(tekst) {
+function klaarMetVerversen(tekst, fout = false) {
   el("versknop").disabled = false;
   el("versknop").textContent = "Ververs gegevens";
-  meld(tekst);
+  meld(tekst, fout);
 }
 
 /** Start een nieuwe validatieronde en wacht tot de gegevens binnen zijn. */
@@ -183,7 +188,7 @@ async function ververs(supabase) {
       },
     });
   } catch {
-    klaarMetVerversen("De verversfunctie is niet bereikbaar.");
+    klaarMetVerversen("De verversfunctie is niet bereikbaar.", true);
     return;
   }
 
@@ -191,7 +196,7 @@ async function ververs(supabase) {
   // 409 betekent: er liep er al een. Dat is geen fout — die ronde levert
   // dezelfde verse gegevens op, dus wachten we hem gewoon af.
   if (!antwoord.ok && antwoord.status !== 409) {
-    klaarMetVerversen(lichaam.fout ?? `Starten is niet gelukt (HTTP ${antwoord.status}).`);
+    klaarMetVerversen(lichaam.fout ?? `Starten is niet gelukt (HTTP ${antwoord.status}).`, true);
     return;
   }
 
@@ -220,7 +225,7 @@ async function ververs(supabase) {
   // De schrijfstap naar Supabase mag de publicatie niet blokkeren en staat
   // daarom op continue-on-error. Slaagt de ronde maar faalt die stap, dan
   // komen we hier: geen nieuwe rij, terwijl er niets is vastgelopen.
-  klaarMetVerversen("De ronde duurt langer dan verwacht. Kijk bij Actions of hij is vastgelopen.");
+  klaarMetVerversen("De ronde duurt langer dan verwacht. Kijk bij Actions of hij is vastgelopen.", true);
 }
 
 

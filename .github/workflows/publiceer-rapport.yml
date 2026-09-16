@@ -55,6 +55,17 @@ jobs:
           mkdir -p _site/toegang
           cp web/index.html web/app.js web/config.js web/theme.css _site/toegang/
 
+          # Cache-buster per publicatie. GitHub Pages laat browsers deze
+          # bestanden tot tien minuten vasthouden, en een harde verversing
+          # pakt een ES-module niet altijd mee. Zonder deze stap draait een
+          # net uitgerolde pagina met het JavaScript van de vorige versie: de
+          # knop uit de nieuwe index.html staat er dan wel, maar de code die
+          # eraan hangt ontbreekt, en hij lijkt kapot.
+          versie="${GITHUB_SHA::7}"
+          sed -i "s|\"\./app\.js\"|\"./app.js?v=$versie\"|; s|\"\./theme\.css\"|\"./theme.css?v=$versie\"|" \
+            _site/toegang/index.html
+          sed -i "s|\"\./config\.js\"|\"./config.js?v=$versie\"|" _site/toegang/app.js
+
       - name: Schrijf de bevindingen naar Supabase
         # De publieke pagina toont alleen aantallen (--alleen-samenvatting);
         # dit is de stap die de echte rijen achter de inlog zet. Zonder de
