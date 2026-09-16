@@ -227,3 +227,49 @@ Onderaan staat daar ook de tabel **Datums per land** (kolom `datums_per_land`):
 elk land met zijn getoonde, gewijzigde en gepushte datum, zonder oordeel. Die
 is er voor wie een land wil nalezen waar regel L12 niets over meldt, omdat de
 push daar gewoon de laatste beweging was.
+
+## De knop "Ververs gegevens" — nog één stap te doen
+
+Op de afgeschermde pagina staat een knop die een nieuwe validatieronde start.
+De knop staat daar en niet op het openbare rapport, om één reden: een ronde
+starten vereist een GitHub-token met schrijfrecht op Actions, en het openbare
+rapport is voor iedereen te lezen. Alles wat een statische pagina kent, kent
+de bezoeker ook.
+
+Daarom loopt de knop via een Edge Function, `supabase/functions/ververs-rapport`:
+
+1. de browser stuurt alleen de sessie van de ingelogde gebruiker mee;
+2. de functie controleert die sessie met `auth.getUser()` en toetst daarna
+   `is_toegestaan()` — dezelfde allowlist als de rest van de pagina;
+3. pas daarna roept de functie GitHub aan, met een token dat als secret bij de
+   functie hoort en de browser nooit bereikt.
+
+Loopt er al een ronde, dan start de functie er geen tweede maar wacht de
+pagina de lopende af. Twee rondes vlak na elkaar geven hetzelfde antwoord en
+belasten de feed dubbel.
+
+### Het token aanmaken en instellen
+
+1. Maak op GitHub een **fine-grained personal access token**:
+   - *Repository access*: alleen `NWW-team/validatie-opendatafeed`
+   - *Repository permissions* → **Actions: Read and write** (meer niet)
+   - Zet een vervaldatum en noteer die; na afloop werkt de knop niet meer.
+2. Zet het token als secret bij de functie, onder de naam
+   `GITHUB_DISPATCH_TOKEN`: Supabase-dashboard → *Edge Functions* → *Secrets*.
+3. Klaar. Zolang het secret ontbreekt, geeft de knop een nette melding
+   ("Deze functie heeft nog geen GITHUB_DISPATCH_TOKEN") in plaats van een
+   onduidelijke fout.
+
+Het token geeft schrijfrecht op Actions van deze ene repo. Dat is genoeg om
+workflows te starten, en niet genoeg om code te wijzigen.
+
+### Waarom de pagina daarna even wacht
+
+Een ronde duurt ongeveer tweeënhalve minuut. De knop laat dat zien en kijkt
+elke tien seconden of er een nieuwe ronde in `rapporten` staat; zodra het
+peilmoment verandert, werkt de pagina zichzelf bij.
+
+Blijft die nieuwe rij uit terwijl de run wél slaagt, dan is de schrijfstap
+naar Supabase gestruikeld. Die staat bewust op `continue-on-error`, zodat een
+storing bij Supabase de publicatie van het openbare rapport niet blokkeert.
+De melding verwijst dan naar Actions.
