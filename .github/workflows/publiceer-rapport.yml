@@ -178,7 +178,15 @@ jobs:
           PY
 
       - uses: actions/upload-pages-artifact@v3
+        # De artifactnaam krijgt het pogingnummer erbij. Bij "Re-run all jobs"
+        # komt er namelijk een tweede artifact bij in dezelfde run, en dan
+        # weigert deploy-pages te kiezen ("Multiple artifacts named
+        # github-pages were unexpectedly found"). Met een naam per poging
+        # vindt de deploy er altijd precies een.
         with:
           path: _site
+          name: github-pages-${{ github.run_attempt }}
       - id: deploy
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
