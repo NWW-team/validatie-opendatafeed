@@ -200,9 +200,17 @@ async function ververs(supabase) {
     return;
   }
 
+  // De functie waarschuwt als het GitHub-token bijna verloopt. Dat is geen
+  // fout — deze ronde loopt gewoon — maar wel iets om nu te zien in plaats
+  // van over een week, als de knop ineens niets meer doet.
+  const waarschuwing = lichaam.waarschuwing;
+  const erbij = waarschuwing ? ` ${waarschuwing}` : "";
+
   meld(
     (antwoord.status === 409 ? "Er liep al een ronde; die wordt afgewacht. " : "De ronde loopt. ") +
-      "Dit duurt ongeveer drie minuten; deze pagina werkt zichzelf bij.",
+      "Dit duurt ongeveer drie minuten; deze pagina werkt zichzelf bij." +
+      erbij,
+    Boolean(waarschuwing),
   );
 
   const begin = Date.now();
@@ -217,7 +225,7 @@ async function ververs(supabase) {
     const nieuwste = data?.[0]?.gegenereerd_op ?? null;
     if (nieuwste && nieuwste !== vorige) {
       await laadRapport(supabase);
-      klaarMetVerversen("De gegevens zijn bijgewerkt.");
+      klaarMetVerversen(`De gegevens zijn bijgewerkt.${erbij}`, Boolean(waarschuwing));
       return;
     }
   }
