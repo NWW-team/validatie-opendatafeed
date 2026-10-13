@@ -34,6 +34,25 @@ function antwoord(status: number, lichaam: Record<string, unknown>): Response {
   });
 }
 
+//: Zoveel dagen van tevoren begint de pagina te waarschuwen.
+const WAARSCHUW_VANAF_DAGEN = 7;
+
+/** De vervaldatum van het gebruikte token, zoals GitHub die meestuurt.
+ *
+ * GitHub zet bij elk antwoord op een geauthenticeerd verzoek de header
+ * `github-authentication-token-expiration`. Dat is de enige plek waar die
+ * datum vandaan komt: de tokenwaarde zelf verraadt hem niet, en er is geen
+ * endpoint dat hem opvraagt. Een token zonder vervaldatum stuurt de header
+ * niet mee; dan is er ook niets te waarschuwen.
+ */
+function vervaldatum(antwoord: Response): Date | null {
+  const rauw = antwoord.headers.get("github-authentication-token-expiration");
+  if (!rauw) return null;
+  // GitHub schrijft "2026-10-16 15:02:52 UTC", en dat is geen ISO-8601.
+  const moment = new Date(rauw.replace(" UTC", "Z").replace(" ", "T"));
+  return Number.isNaN(moment.getTime()) ? null : moment;
+}
+
 Deno.serve(async (verzoek) => {
   if (verzoek.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (verzoek.method !== "POST") return antwoord(405, { fout: "Alleen POST." });
@@ -91,6 +110,27 @@ Deno.serve(async (verzoek) => {
     return antwoord(502, { fout: `GitHub weigerde de start (HTTP ${gestart.status}).` });
   }
 
+  const lichaam: Record<string, unknown> = { gestart: true };
+
+  // De header staat op elk antwoord; de leesactie hierboven is er altijd, de
+  // dispatch dient als terugval.
+  const verloopt = vervaldatum(lopend) ?? vervaldatum(gestart);
+  if (verloopt) {
+    const dagen = Math.ceil((verloopt.getTime() - Date.now()) / 86_400_000);
+    console.log(`Token verloopt op ${verloopt.toISOString()} (over ${dagen} dag(en)).`);
+    if (dagen <= 0) {
+      lichaam.waarschuwing =
+        "Het GitHub-token is verlopen. Vervang het secret GITHUB_DISPATCH_TOKEN; " +
+        "deze ronde is nog gestart, maar een volgende lukt niet meer.";
+    } else if (dagen <= WAARSCHUW_VANAF_DAGEN) {
+      lichaam.waarschuwing =
+        `Let op: het GitHub-token verloopt over ${dagen} dag(en). Vervang daarvoor ` +
+        "het secret GITHUB_DISPATCH_TOKEN, anders stopt deze knop met werken.";
+    }
+  } else {
+    console.log("Het token stuurt geen vervaldatum mee; waarschuwen is niet mogelijk.");
+  }
+
   console.log(`Ronde gestart door ${user.email}.`);
-  return antwoord(202, { gestart: true });
+  return antwoord(202, lichaam);
 });
